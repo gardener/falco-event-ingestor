@@ -1,0 +1,8 @@
+apiVersion: cert.gardener.cloud/v1alpha1
+kind: Certificate
+metadata:
+  name: ingestor-certificate
+spec:
+  commonName: {{ .Values.ingestor.commonName | quote }}
+  secretName: tls
+

@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/configuration-snippet: proxy_set_header X-Scope-OrgID falco;
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/use-port-in-redirects: "true"
+  labels:
+    app: falco-event-ingestor
+  name: falco-event-ingestor-ingress
+spec:
+  ingressClassName: {{ .Values.ingestor.ingressClassName}}
+  rules:
+  - host: {{ .Values.ingestor.ingressDomain }}
+    http:
+      paths:
+      - backend:
+          service:
+            name: falco-event-ingestor
+            port:
+              number: 3200
+        path: /ingestor/api/v1/push
+        pathType: Prefix
+  tls:
+  - hosts:
+    - {{ .Values.ingestor.ingressDomain }}
+    secretName: tls

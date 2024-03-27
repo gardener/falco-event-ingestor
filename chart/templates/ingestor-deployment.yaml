@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+  labels:
+    app: falco-event-ingestor
+  name: falco-event-ingestor
+spec:
+  progressDeadlineSeconds: 30
+  replicas: 2
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: falco-event-ingestor
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: falco-event-ingestor
+        gardener.cloud/role: monitoring
+        networking.gardener.cloud/to-dns: allowed
+        resources.gardener.cloud/managed-by: gardener
+        networking.resources.gardener.cloud/to-postgres-tcp-5432: allowed
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - name: ingestor
+        image: {{ .Values.ingestor.image }}:{{ .Values.ingestor.tag }}
+        imagePullPolicy: Always
+        args:
+        - --config-file
+        - /etc/falco-event-ingestor/config.yaml
+        - --key-file
+        - /etc/falco-event-ingestor/public.pem
+        - --postgres-password-file
+        - /etc/falco-event-ingestor/postgres
+        ports:
+        - containerPort: 3200
+          name: web
+          protocol: TCP
+        resources:
+          limits:
+            memory: 400Mi
+          requests:
+            cpu: 10m
+            memory: 32Mi
+        volumeMounts:
+        - mountPath: /etc/falco-event-ingestor
+          name: all-in-one
+        livenessProbe:
+          failureThreshold: 1
+          httpGet:
+            path: /healthz
+            port: 3200
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 2
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: all-in-one
+        projected:
+          sources:
+          - secret:
+              name: ingestor-secret
+              items:
+              - key: public.pem
+                path: public.pem
+              - key: postgres
+                path: postgres
+          - configMap:
+              name: ingestor-configmap
+              items:
+              - key: config.yaml
+                path: config.yaml
