@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+  name: ingestor-configmap
+data:
+  config.yaml: |
+    postgres:
+      user: {{ .Values.postgres.user }}
+      host: {{ .Values.postgres.host }}
+      port: {{ .Values.postgres.port }}
+      dbname: {{ .Values.postgres.dbname }}
+
+    server:
+      port: {{ .Values.server.port }}
+    healthz:
+      port: 9999

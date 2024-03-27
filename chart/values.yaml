@@ -1,0 +1,17 @@
+ingestor:
+  ingressDomain: ""
+  image: europe-docker.pkg.dev/gardener-project/public/gardener/falco-event-ingestor
+  tag: 0.0.1
+  publicKey: ""
+  postgresPassword: ""
+  commonName:
+  dnsNames:
+
+postgres:
+  user: falco_writer
+  host: postgres
+  port: 5432
+  dbname: falco
+
+server:
+  port: 3200
