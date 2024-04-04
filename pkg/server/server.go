@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"sync"
+	"time"
 
 	"github.com/gardener/falco-event-ingestor/pkg/auth"
 	"github.com/gardener/falco-event-ingestor/pkg/postgres"
@@ -17,24 +19,72 @@ import (
 	"golang.org/x/time/rate"
 )
 
-func NewServer(v *auth.Auth, p *postgres.PostgresConfig, port int) {
-	rateLimit := rate.Limit(10) // n events per second
-	burst := 10
+type Server struct {
+	validator    *auth.Auth
+	postgres     *postgres.PostgresConfig
+	serverLimits map[string]*shootLimiter
+	limterMutex  sync.Mutex
+}
+
+type shootLimiter struct {
+	limit    *rate.Limiter
+	lastSeen time.Time
+}
+
+func NewServer(v *auth.Auth, p *postgres.PostgresConfig, port int) *Server {
+	server := Server{v, p, map[string]*shootLimiter{}, sync.Mutex{}}
+	rateLimit := rate.Limit(100) // n events per second
+	burst := 100
 	limiter := rate.NewLimiter(rateLimit, burst) // shared limiter for all endpoints
 
 	http.HandleFunc("/healthz", newHandleHealth(p))
-	http.HandleFunc("/ingestor/api/v1/push", rateLimiter(limiter, newHandlePush(v, p)))
+	http.HandleFunc("/ingestor/api/v1/push", rateLimiter(limiter, newHandlePush(v, p, &server)))
 
 	log.Info("Starting server at port " + strconv.Itoa(port))
 	if err := http.ListenAndServe(":"+strconv.Itoa(port), nil); err != nil {
 		log.Fatal(err)
+	}
+	go server.cleanLimits()
+	return &server
+}
+
+func (s *Server) checkLimits(clusterId string) error {
+	s.limterMutex.Lock()
+	defer s.limterMutex.Unlock()
+	if _, ok := s.serverLimits[clusterId]; !ok {
+		s.serverLimits[clusterId] = newShootLimiter(rate.Every(time.Hour*24/2000), 100)
+	}
+	shootLimit := s.serverLimits[clusterId]
+	shootLimit.lastSeen = time.Now()
+	if !shootLimit.limit.Allow() {
+		return errors.New("too many requests")
+	}
+	return nil
+}
+
+func (s *Server) cleanLimits() {
+	for {
+		time.Sleep(time.Hour)
+		s.limterMutex.Lock()
+		for shoot, shootLimits := range s.serverLimits {
+			if time.Since(shootLimits.lastSeen) > time.Hour*48 {
+				delete(s.serverLimits, shoot)
+			}
+		}
+		s.limterMutex.Unlock()
+	}
+}
+
+func newShootLimiter(lim rate.Limit, burst int) *shootLimiter {
+	return &shootLimiter{
+		limit: rate.NewLimiter(lim, burst),
 	}
 }
 
 func newHandleHealth(p *postgres.PostgresConfig) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := p.CheckHealth(); err != nil {
-			log.Info("health check failed due to " + err.Error())
+			log.Error("health check failed due to " + err.Error())
 			http.Error(w, "database not ready", http.StatusServiceUnavailable)
 		} else {
 			w.WriteHeader(200)
@@ -45,19 +95,25 @@ func newHandleHealth(p *postgres.PostgresConfig) func(http.ResponseWriter, *http
 	}
 }
 
-func newHandlePush(v *auth.Auth, p *postgres.PostgresConfig) func(http.ResponseWriter, *http.Request) {
+func newHandlePush(v *auth.Auth, p *postgres.PostgresConfig, s *Server) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		token, err := v.ExtractToken(r)
 		if err != nil {
-			log.Debug("Error extracting token " + err.Error())
+			log.Errorf("Error extracting token: %s", err)
 			http.Error(w, "valid token required", http.StatusUnauthorized)
 			return
 		}
 
 		tokenValues, err := v.VerifyToken(*token)
 		if err != nil {
-			log.Debug("Error validating token " + err.Error())
+			log.Errorf("Error validating token: %s", err)
 			http.Error(w, "valid token required", http.StatusUnauthorized)
+			return
+		}
+
+		if err := s.checkLimits(tokenValues.ClusterId); err != nil {
+			log.Errorf("Error too many requests: %s", err)
+			http.Error(w, "too many requests", http.StatusTooManyRequests)
 			return
 		}
 
