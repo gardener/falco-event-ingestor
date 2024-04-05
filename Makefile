@@ -5,6 +5,11 @@
 IMAGE_REPOSITORY   := europe-docker.pkg.dev/gardener-project/snapshots/${USER}/falco-event-ingestor
 IMAGE_TAG          := $(shell cat VERSION)
 COVERPROFILE       := test/output/coverprofile.out
+REPO_ROOT          := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+HACK_DIR           := $(REPO_ROOT)/hack
+VERSION            := $(shell cat "$(REPO_ROOT)/VERSION")
+EFFECTIVE_VERSION  := $(VERSION)-$(shell git rev-parse HEAD)
+LD_FLAGS           := ""
 
 .PHONY: start
 start:
@@ -46,6 +51,11 @@ docker-push:
 .PHONY: clean
 clean:
 	@rm -rf bin/
+
+.PHONY: install
+install:
+	LD_FLAGS=$(LD_FLAGS) EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) \
+	bash $(HACK_DIR)/install.sh ./...
 
 #####################################################################
 # Rules for verification, formatting, linting, testing and cleaning #
