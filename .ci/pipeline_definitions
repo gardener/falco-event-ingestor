@@ -1,0 +1,51 @@
+falco-event-ingestor:
+  base_definition:
+    traits:
+      component_descriptor:
+        ocm_repository: europe-docker.pkg.dev/gardener-project/snapshots
+      version:
+        preprocess:
+          'inject-commit-hash'
+      publish:
+        oci-builder: docker-buildx
+        platforms:
+        - linux/amd64
+        - linux/arm64
+        dockerimages:
+          falco-event-ingestor:
+            image: europe-docker.pkg.dev/gardener-project/snapshots/gardener/falco-event-ingestor
+            dockerfile: 'Dockerfile'
+            resource_labels:
+            - name: 'gardener.cloud/cve-categorisation'
+              value:
+                network_exposure: 'public'
+                authentication_enforced: true
+                user_interaction: 'end-user'
+                confidentiality_requirement: 'low'
+                integrity_requirement: 'low'
+                availability_requirement: 'low'
+    steps:
+      verify:
+        image: golang:1.22.1
+  jobs:
+    head-update:
+      traits:
+        component_descriptor:
+          ocm_repository_mappings:
+            - repository: europe-docker.pkg.dev/gardener-project/releases
+        draft_release: ~
+    pull-request:
+      traits:
+        pull-request: ~
+    release:
+      traits:
+        version:
+          preprocess: 'finalize'
+        release:
+          nextversion: 'bump_minor'
+        component_descriptor:
+          ocm_repository: europe-docker.pkg.dev/gardener-project/releases
+        publish:
+          dockerimages:
+            falco-event-ingestor:
+              image: europe-docker.pkg.dev/gardener-project/releases/gardener/falco-event-ingestor
