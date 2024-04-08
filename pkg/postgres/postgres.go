@@ -18,9 +18,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const INSERT_STATEMENT = "INSERT INTO falco_events(landscape, project, cluster, hostname, time, rule, priority, tags, source, message) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"
+const INSERT_STATEMENT = "INSERT INTO falco_events(landscape, project, cluster, uuid, hostname, time, rule, priority, tags, source, message) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)"
 
-var REQUIRED_FIELDS = []string{"landscape", "project", "cluster", "hostname", "time", "rule", "priority", "tags", "source"}
+var REQUIRED_FIELDS = []string{"landscape", "project", "cluster", "uuid", "hostname", "time", "rule", "priority", "tags", "source"}
 
 type ClusterIdentity struct {
 	project   string
@@ -47,11 +47,8 @@ type EventStruct struct {
 	Time         time.Time                  `json:"time"`
 	OutputFields map[string]json.RawMessage `json:"output_fields"`
 	Source       string                     `json:"source"`
-	Tags         json.RawMessage            `json:"tags"` // possibly should be []string
+	Tags         json.RawMessage            `json:"tags"`
 	Hostname     string                     `json:"hostname"`
-	Landscape    string                     `json:"landscape"`
-	Cluster      string                     `json:"cluster"`
-	Project      string                     `json:"project"`
 }
 
 func NewPostgresConfig(user, password, host string, port int, dbname string) *PostgresConfig {
@@ -124,7 +121,7 @@ func (c *PostgresConfig) Insert(event *EventStruct) {
 		log.Errorf("Error inserting event into database: %s", err)
 	}
 
-	_, err2 := c.stmt.Exec("tst", clusterIdentity.project, clusterIdentity.cluster, event.Hostname, event.Time, event.Rule, event.Priority, event.Tags, event.Source, event.Output)
+	_, err2 := c.stmt.Exec(clusterIdentity.landscape, clusterIdentity.project, clusterIdentity.cluster, clusterIdentity.uuid, event.Hostname, event.Time, event.Rule, event.Priority, event.Tags, event.Source, event.Output)
 	if err2 != nil {
 		log.Errorf("Error inserting event into database: %s", err2)
 		return
