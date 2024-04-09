@@ -34,15 +34,14 @@ type clusterLimiter struct {
 	lastSeen time.Time
 }
 
-func NewServer(v *auth.Auth, p *postgres.PostgresConfig, port int) *Server {
-	generalLimiter := rate.NewLimiter(rate.Limit(100), 100) // shared limiter for all endpoints
+func NewServer(v *auth.Auth, p *postgres.PostgresConfig, port int, clusterDailyEventLimit int) *Server {
+	generalLimiter := rate.NewLimiter(rate.Limit(100), 100) // Shared limiter for all endpoints
 
-	clusterLim := rate.Every(time.Hour * 24 / 2000)
-	clusterBurst := 1
+	clusterLim := rate.Every(time.Hour * 24 / time.Duration(clusterDailyEventLimit))
+	clusterBurst := int(float64(clusterDailyEventLimit) * 0.3) // We allow bursts of 30% of the daily limit
 	server := Server{v, p, map[string]*clusterLimiter{}, sync.Mutex{}, clusterLim, clusterBurst, generalLimiter}
 
 	http.HandleFunc("/healthz", newHandleHealth(p))
-
 	http.HandleFunc("/ingestor/api/v1/push", newHandlePush(v, p, &server))
 
 	log.Info("Starting server at port " + strconv.Itoa(port))
