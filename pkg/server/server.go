@@ -37,7 +37,7 @@ type clusterLimiter struct {
 func NewServer(v *auth.Auth, p *postgres.PostgresConfig, port int, clusterDailyEventLimit int) *Server {
 	generalLimiter := rate.NewLimiter(rate.Limit(100), 100) // Shared limiter for all endpoints
 
-	clusterLim := rate.Every(time.Hour * 24 / time.Duration(clusterDailyEventLimit))
+	clusterLim := rate.Every(24 * time.Hour / time.Duration(clusterDailyEventLimit)) // Casting required
 	clusterBurst := int(float64(clusterDailyEventLimit) * 0.3) // We allow bursts of 30% of the daily limit
 	server := Server{v, p, map[string]*clusterLimiter{}, sync.Mutex{}, clusterLim, clusterBurst, generalLimiter}
 
