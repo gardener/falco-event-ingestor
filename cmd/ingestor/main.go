@@ -26,6 +26,8 @@ var (
 	verificationKey string
 	// Configuration file
 	configFile string
+	// Daily limit of events received by one cluster
+	clusterDailyEventLimit int
 
 	// postgres object
 	postgresConfig *postgres.PostgresConfig
@@ -36,7 +38,7 @@ var (
 		Use:   "ingestor",
 		Short: "Falco event ingestor for Postgres (" + Version + ")",
 		Run: func(cmd *cobra.Command, args []string) {
-			server.NewServer(validator, postgresConfig, viper.GetInt("server.port"))
+			server.NewServer(validator, postgresConfig, viper.GetInt("server.port"), clusterDailyEventLimit)
 			cmd.Help()
 		},
 	}
@@ -82,6 +84,7 @@ func main() {
 	rootCmd.Flags().StringVarP(&configFile, "config-file", "", "", "configuration file")
 	rootCmd.Flags().StringVarP(&verificationKey, "key-file", "", "", "public key to verify JWT tokens")
 	rootCmd.Flags().StringVarP(&postgresPassword, "postgres-password-file", "", "", "password for the postgres user")
+	rootCmd.Flags().IntVar(&clusterDailyEventLimit, "cluster-daily-event-limit", 10000, "daily limit of falco events received from one cluster")
 	rootCmd.MarkFlagRequired("config-file")
 	rootCmd.MarkFlagRequired("key-file")
 	rootCmd.MarkFlagRequired("postgres-password-file")
