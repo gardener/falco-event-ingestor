@@ -35,7 +35,8 @@ type clusterLimiter struct {
 }
 
 func NewServer(v *auth.Auth, p *postgres.PostgresConfig, port int, clusterDailyEventLimit int) *Server {
-	generalLimiter := rate.NewLimiter(rate.Limit(100), 100) // Shared limiter for all endpoints
+	veryHighLimit := 10000
+	generalLimiter := rate.NewLimiter(rate.Limit(veryHighLimit), veryHighLimit) // Shared limiter for all endpoints
 
 	clusterLim := rate.Every(24 * time.Hour / time.Duration(clusterDailyEventLimit)) // Casting required
 	clusterBurst := int(float64(clusterDailyEventLimit) * 0.3) // We allow bursts of 30% of the daily limit
@@ -166,7 +167,7 @@ func verifyEventTokenMatch(event *postgres.EventStruct, token *auth.TokenValues)
 func requestToEvent(req *http.Request) (*postgres.EventStruct, error) {
 	eventStruct := postgres.EventStruct{}
 	decoder := json.NewDecoder(req.Body)
-	decoder.DisallowUnknownFields() // catch unwanted fields
+	decoder.DisallowUnknownFields()
 
 	if err := decoder.Decode(&eventStruct); err != nil {
 		return nil, fmt.Errorf("cannot parse http body: %s", err.Error())
