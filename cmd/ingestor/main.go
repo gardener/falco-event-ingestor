@@ -27,24 +27,22 @@ var (
 	// Configuration file
 	configFile string
 
-	// postgres object
 	postgresConfig *postgres.PostgresConfig
-
-	validator *auth.Auth
+	validator      *auth.Auth
 
 	rootCmd = &cobra.Command{
 		Use:   "ingestor",
 		Short: "Falco event ingestor for Postgres (" + Version + ")",
 		Run: func(cmd *cobra.Command, args []string) {
 			server.NewServer(validator, postgresConfig, viper.GetInt("server.port"))
-			cmd.Help()
+			if err := cmd.Help(); err != nil {
+				log.Fatalf("Could not output help command: %s", err)
+			}
 		},
 	}
 )
 
 func configureLogging() {
-	// log.SetFormatter(&log.JSONFormatter{})
-	// log.SetOutput(os.Stdout)
 	log.SetLevel(log.InfoLevel)
 }
 
@@ -82,12 +80,17 @@ func main() {
 	rootCmd.Flags().StringVarP(&configFile, "config-file", "", "", "configuration file")
 	rootCmd.Flags().StringVarP(&verificationKey, "key-file", "", "", "public key to verify JWT tokens")
 	rootCmd.Flags().StringVarP(&postgresPassword, "postgres-password-file", "", "", "password for the postgres user")
-	rootCmd.MarkFlagRequired("config-file")
-	rootCmd.MarkFlagRequired("key-file")
-	rootCmd.MarkFlagRequired("postgres-password-file")
-	err := rootCmd.Execute()
-	if err != nil {
-		os.Stderr.WriteString(err.Error() + "\n")
-		os.Exit(1)
+	if err := rootCmd.MarkFlagRequired("config-file"); err != nil {
+		log.Fatalf("Could not mark flag required: %s", err)
+	}
+	if err := rootCmd.MarkFlagRequired("key-file"); err != nil {
+		log.Fatalf("Could not mark flag required: %s", err)
+	}
+	if err := rootCmd.MarkFlagRequired("postgres-password-file"); err != nil {
+		log.Fatalf("Could not mark flag required: %s", err)
+	}
+
+	if err := rootCmd.Execute(); err != nil {
+		log.Fatalf("Could not execute command: %s", err)
 	}
 }

@@ -1,2 +1,3 @@
 .dev/
-/hack/tools/bin/
+hack/tools/bin/
+bin/
