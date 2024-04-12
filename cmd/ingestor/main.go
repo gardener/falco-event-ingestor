@@ -16,9 +16,9 @@ import (
 )
 
 var (
-	// Version is injected by build.
+	// Version is injected by build
 	Version string
-	// ImageTag is injected by build.
+	// ImageTag is injected by build
 	ImageTag string
 	// Password for the postgres user
 	postgresPassword string
@@ -29,7 +29,6 @@ var (
 	// Daily limit of events received by one cluster
 	clusterDailyEventLimit int
 
-	// postgres object
 	postgresConfig *postgres.PostgresConfig
 
 	validator *auth.Auth
