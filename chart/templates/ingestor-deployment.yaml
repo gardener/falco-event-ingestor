@@ -38,6 +38,8 @@ spec:
         - /etc/falco-event-ingestor/public.pem
         - --postgres-password-file
         - /etc/falco-event-ingestor/postgres
+        - --cluster-daily-event-limit
+        - "{{ .Values.ingestor.clusterDailyEventLimit }}"
         ports:
         - containerPort: 3200
           name: web
