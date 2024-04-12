@@ -20,6 +20,22 @@ start:
 			--postgress-password-file=${CONTROL_KUBECONFIG} \
 
 #################################################################
+# Rules related to formatting and linting                       #
+#################################################################
+
+TOOLS_DIR := hack/tools
+include $(TOOLS_DIR)/tools.mk
+
+.PHONY: check
+check: $(GOIMPORTS) $(GOLANGCI_LINT)
+	go vet ./...
+	GOIMPORTS=$(GOIMPORTS) GOLANGCI_LINT=$(GOLANGCI_LINT) hack/check.sh ./cmd/... ./pkg/...
+
+.PHONY: format
+format: $(GOIMPORTS)
+	@GOIMPORTS=$(GOIMPORTS) $(REPO_ROOT)/hack/format.sh ./cmd ./pkg
+
+#################################################################
 # Rules related to binary build, Docker image build and release #
 #################################################################
 
@@ -58,15 +74,11 @@ install:
 	bash $(HACK_DIR)/install.sh ./...
 
 #####################################################################
-# Rules for verification, formatting, linting, testing and cleaning #
+# Rules for verification, testing and cleaning #
 #####################################################################
 
 .PHONY: verify
-verify: check test
-
-.PHONY: check
-check:
-	@.ci/check
+verify: check format test
 
 .PHONY: test
 test:

@@ -1,2 +1,4 @@
-.dev
-vendor
+.dev/
+bin/
+hack/tools/bin/
+vendor/
