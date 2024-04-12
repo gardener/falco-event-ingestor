@@ -16,9 +16,9 @@ import (
 )
 
 var (
-	// Version is injected by build.
+	// Version is injected by build
 	Version string
-	// ImageTag is injected by build.
+	// ImageTag is injected by build
 	ImageTag string
 	// Password for the postgres user
 	postgresPassword string
@@ -26,6 +26,8 @@ var (
 	verificationKey string
 	// Configuration file
 	configFile string
+	// Daily limit of events received by one cluster
+	clusterDailyEventLimit int
 
 	postgresConfig *postgres.PostgresConfig
 	validator      *auth.Auth
@@ -34,7 +36,7 @@ var (
 		Use:   "ingestor",
 		Short: "Falco event ingestor for Postgres (" + Version + ")",
 		Run: func(cmd *cobra.Command, args []string) {
-			server.NewServer(validator, postgresConfig, viper.GetInt("server.port"))
+			server.NewServer(validator, postgresConfig, viper.GetInt("server.port"), clusterDailyEventLimit)
 			if err := cmd.Help(); err != nil {
 				log.Fatalf("Could not output help command: %s", err)
 			}
@@ -80,6 +82,7 @@ func main() {
 	rootCmd.Flags().StringVarP(&configFile, "config-file", "", "", "configuration file")
 	rootCmd.Flags().StringVarP(&verificationKey, "key-file", "", "", "public key to verify JWT tokens")
 	rootCmd.Flags().StringVarP(&postgresPassword, "postgres-password-file", "", "", "password for the postgres user")
+  rootCmd.Flags().IntVar(&clusterDailyEventLimit, "cluster-daily-event-limit", 10000, "daily limit of falco events received from one cluster")
 	if err := rootCmd.MarkFlagRequired("config-file"); err != nil {
 		log.Fatalf("Could not mark flag required: %s", err)
 	}
@@ -91,6 +94,7 @@ func main() {
 	}
 
 	if err := rootCmd.Execute(); err != nil {
-		log.Fatalf("Could not execute command: %s", err)
+		os.Stderr.WriteString(err.Error() + "\n")
+		os.Exit(1)
 	}
 }

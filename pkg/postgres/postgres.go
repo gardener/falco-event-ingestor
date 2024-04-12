@@ -52,7 +52,7 @@ type EventStruct struct {
 }
 
 func NewPostgresConfig(user, password, host string, port int, dbname string) *PostgresConfig {
-	connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s", host, port, user, password, dbname)
+	connStr := fmt.Sprintf("host=%s port=%d user=%s dbname=%s", host, port, user, dbname)
 	log.Infof("Trying connection: %s", connStr)
 
 	db, err := sql.Open("postgres", connStr)
@@ -68,7 +68,7 @@ func NewPostgresConfig(user, password, host string, port int, dbname string) *Po
 	db.SetConnMaxLifetime(0)
 	db.SetMaxIdleConns(3)
 	db.SetMaxOpenConns(10)
-	stmt, err := PrepareInsert(db)
+	stmt, err := prepareInsert(db)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -114,27 +114,26 @@ func parseClusterId(event *EventStruct) (*ClusterIdentity, error) {
 	}, nil
 }
 
-// we cannot do anything here if this fails ... Not returning an error
-func (c *PostgresConfig) Insert(event *EventStruct) {
-	clusterIdentity, err := parseClusterId(event)
-	if err != nil {
-		log.Errorf("Error inserting event into database: %s", err)
-	}
-
-	_, err2 := c.stmt.Exec(clusterIdentity.landscape, clusterIdentity.project, clusterIdentity.cluster, clusterIdentity.uuid, event.Hostname, event.Time, event.Rule, event.Priority, event.Tags, event.Source, event.Output)
-	if err2 != nil {
-		log.Errorf("Error inserting event into database: %s", err2)
-		return
-	}
-	log.Info("Database insert request finished without error")
-}
-
-func PrepareInsert(db *sql.DB) (*sql.Stmt, error) {
+func prepareInsert(db *sql.DB) (*sql.Stmt, error) {
 	stmt, err := db.Prepare(INSERT_STATEMENT)
 	if err != nil {
 		return nil, fmt.Errorf("could not prepare sql statement: %s due to error: %s", INSERT_STATEMENT, err.Error())
 	}
 	return stmt, nil
+}
+
+func (pgconf *PostgresConfig) Insert(event *EventStruct) {
+	clusterIdentity, err := parseClusterId(event)
+	if err != nil {
+		log.Errorf("Error inserting event into database: %s", err)
+	}
+
+	_, err2 := pgconf.stmt.Exec(clusterIdentity.landscape, clusterIdentity.project, clusterIdentity.cluster, clusterIdentity.uuid, event.Hostname, event.Time, event.Rule, event.Priority, event.Tags, event.Source, event.Output)
+	if err2 != nil {
+		log.Errorf("Error inserting event into database: %s", err2)
+		return
+	}
+	log.Info("Database insert request finished without error")
 }
 
 func (pgconf *PostgresConfig) CheckHealth() error {

@@ -6,6 +6,7 @@ ingestor:
   postgresPassword: ""
   commonName:
   dnsNames:
+  clusterDailyEventLimit: 4000
 
 postgres:
   user: falco_writer
