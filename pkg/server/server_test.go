@@ -64,7 +64,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestTokenEventMatch(t *testing.T) {
-    clusterId := "testtest"
+	clusterId := "testtest"
 	event := &postgres.EventStruct{OutputFields: map[string]json.RawMessage{"output_fields": []byte(clusterId)}}
 	token := &auth.TokenValues{ClusterId: clusterId}
 
@@ -74,7 +74,7 @@ func TestTokenEventMatch(t *testing.T) {
 }
 
 func TestTokenEventMismatch(t *testing.T) {
-    clusterId := "testtest"
+	clusterId := "testtest"
 	event := &postgres.EventStruct{OutputFields: map[string]json.RawMessage{"output_fields": []byte(clusterId)}}
 	tokenWrongId := &auth.TokenValues{ClusterId: clusterId + "wrong"}
 
@@ -92,10 +92,10 @@ func TestRequestToEventGood(t *testing.T) {
 }
 
 func TestRequestToEventUnkownField(t *testing.T) {
-    unknownFields := []byte(`, "field": "unknown"`)
-    closingBraceIdx := bytes.LastIndexByte(bodyJson, '}')
-    unknownFieldsJson := append(bodyJson[:closingBraceIdx], unknownFields...)
-    unknownFieldsJson = append(unknownFieldsJson, '}')
+	unknownFields := []byte(`, "field": "unknown"`)
+	closingBraceIdx := bytes.LastIndexByte(bodyJson, '}')
+	unknownFieldsJson := append(bodyJson[:closingBraceIdx], unknownFields...)
+	unknownFieldsJson = append(unknownFieldsJson, '}')
 	bodyReader := strings.NewReader(string(unknownFieldsJson))
 	req := httptest.NewRequest("GET", "/test", bodyReader)
 	if _, err := requestToEvent(req); err == nil {

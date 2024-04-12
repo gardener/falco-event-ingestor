@@ -52,7 +52,7 @@ type EventStruct struct {
 }
 
 func NewPostgresConfig(user, password, host string, port int, dbname string) *PostgresConfig {
-	connStr := fmt.Sprintf("host=%s port=%d user=%s dbname=%s", host, port, user, dbname)
+	connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s", host, port, user, password, dbname)
 	log.Infof("Trying connection: %s", connStr)
 
 	db, err := sql.Open("postgres", connStr)
