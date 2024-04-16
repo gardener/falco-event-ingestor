@@ -37,7 +37,7 @@ spec:
         - --key-file
         - /etc/falco-event-ingestor/public.pem
         - --postgres-password-file
-        - /etc/falco-event-ingestor/postgres
+        - /etc/falco-event-ingestor/psql-password
         - --cluster-daily-event-limit
         - "{{ .Values.ingestor.clusterDailyEventLimit }}"
         ports:
@@ -52,7 +52,7 @@ spec:
             memory: 32Mi
         volumeMounts:
         - mountPath: /etc/falco-event-ingestor
-          name: all-in-one
+          name: all-volumes
         livenessProbe:
           failureThreshold: 1
           httpGet:
@@ -68,7 +68,7 @@ spec:
       securityContext: {}
       terminationGracePeriodSeconds: 10
       volumes:
-      - name: all-in-one
+      - name: all-volumes
         projected:
           sources:
           - secret:
@@ -83,3 +83,9 @@ spec:
               items:
               - key: config.yaml
                 path: config.yaml
+          - secret:
+              name: gardener.falco-event-db.credentials.postgresql.acid.zalan.do
+              items:
+              - key: password
+                path: psql-password
+
