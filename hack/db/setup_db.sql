@@ -20,7 +20,7 @@ CREATE TABLE falco_events (
     priority char(10),
     tags VARCHAR(126),
     source CHAR(20),
-    message TEXT
+    message VARCHAR(5000)
 );
 -- CREATE INDEX ON landscape
 CREATE INDEX project_index ON falco_events (project);

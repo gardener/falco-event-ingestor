@@ -39,7 +39,7 @@ func NewServer(v *auth.Auth, p *postgres.PostgresConfig, port int, clusterDailyE
 	generalLimiter := rate.NewLimiter(rate.Limit(veryHighLimit), veryHighLimit) // Shared limiter for all endpoints
 
 	clusterLim := rate.Every(24 * time.Hour / time.Duration(clusterDailyEventLimit)) // Casting required
-	clusterBurst := int(float64(clusterDailyEventLimit) * 0.3) // We allow bursts of 30% of the daily limit
+	clusterBurst := int(float64(clusterDailyEventLimit) * 0.3)                       // We allow bursts of 30% of the daily limit
 	server := Server{v, p, map[string]*clusterLimiter{}, sync.Mutex{}, clusterLim, clusterBurst, generalLimiter}
 
 	http.HandleFunc("/healthz", newHandleHealth(p))

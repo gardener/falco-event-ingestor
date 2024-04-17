@@ -82,7 +82,7 @@ func main() {
 	rootCmd.Flags().StringVarP(&configFile, "config-file", "", "", "configuration file")
 	rootCmd.Flags().StringVarP(&verificationKey, "key-file", "", "", "public key to verify JWT tokens")
 	rootCmd.Flags().StringVarP(&postgresPassword, "postgres-password-file", "", "", "password for the postgres user")
-  rootCmd.Flags().IntVar(&clusterDailyEventLimit, "cluster-daily-event-limit", 10000, "daily limit of falco events received from one cluster")
+	rootCmd.Flags().IntVar(&clusterDailyEventLimit, "cluster-daily-event-limit", 10000, "daily limit of falco events received from one cluster")
 	if err := rootCmd.MarkFlagRequired("config-file"); err != nil {
 		log.Fatalf("Could not mark flag required: %s", err)
 	}
