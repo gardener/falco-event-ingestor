@@ -3,10 +3,10 @@ ingestor:
   image: europe-docker.pkg.dev/gardener-project/public/gardener/falco-event-ingestor
   tag: 0.0.1
   publicKey: ""
-  postgresPassword: ""
   commonName: *theIngress
   dnsNames: ""
   clusterDailyEventLimit: 4000
+  ingestorSideTLS: False
 
 postgres:
   user: gardener

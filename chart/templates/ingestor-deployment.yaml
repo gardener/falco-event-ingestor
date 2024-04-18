@@ -35,11 +35,17 @@ spec:
         - --config-file
         - /etc/falco-event-ingestor/config.yaml
         - --key-file
-        - /etc/falco-event-ingestor/public.pem
+        - /etc/falco-event-ingestor/token/public.pem
         - --postgres-password-file
-        - /etc/falco-event-ingestor/psql-password
+        - /etc/falco-event-ingestor/psql/password
         - --cluster-daily-event-limit
         - "{{ .Values.ingestor.clusterDailyEventLimit }}"
+      {{ if .Values.ingestor.ingestorSideTLS }}
+        - --tls-certificate
+        - /etc/falco-event-ingestor/tls/tls.crt
+        - --tls-key
+        - /etc/falco-event-ingestor/tls/tls.key
+      {{ end }}
         ports:
         - containerPort: 3200
           name: web
@@ -58,6 +64,9 @@ spec:
           httpGet:
             path: /healthz
             port: 3200
+            {{ if .Values.ingestor.ingestorSideTLS }}
+            scheme: HTTPS
+            {{ end }}
           initialDelaySeconds: 5
           periodSeconds: 10
           successThreshold: 1
@@ -72,20 +81,26 @@ spec:
         projected:
           sources:
           - secret:
-              name: ingestor-secret
+              name: token-verification-key
               items:
               - key: public.pem
-                path: public.pem
-              - key: postgres
-                path: postgres
+                path: token/public.pem
+          - secret:
+              name: gardener.falco-event-db.credentials.postgresql.acid.zalan.do
+              items:
+              - key: password
+                path: psql/password
+          - secret:
+              name: tls-secret
+              items:
+              - key: tls.key
+                path: tls/tls.key
+              - key: tls.crt
+                path: tls/tls.crt
           - configMap:
               name: ingestor-configmap
               items:
               - key: config.yaml
                 path: config.yaml
-          - secret:
-              name: gardener.falco-event-db.credentials.postgresql.acid.zalan.do
-              items:
-              - key: password
-                path: psql-password
+
 

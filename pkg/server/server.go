@@ -34,21 +34,30 @@ type clusterLimiter struct {
 	lastSeen time.Time
 }
 
-func NewServer(v *auth.Auth, p *postgres.PostgresConfig, port int, clusterDailyEventLimit int) *Server {
+func NewServer(v *auth.Auth, p *postgres.PostgresConfig, port int, clusterDailyEventLimit int, tlsCertFile string, tlsKeyFile string) *Server {
 	veryHighLimit := 10000
 	generalLimiter := rate.NewLimiter(rate.Limit(veryHighLimit), veryHighLimit) // Shared limiter for all endpoints
 
 	clusterLim := rate.Every(24 * time.Hour / time.Duration(clusterDailyEventLimit)) // Casting required
 	clusterBurst := int(float64(clusterDailyEventLimit) * 0.3)                       // We allow bursts of 30% of the daily limit
+
 	server := Server{v, p, map[string]*clusterLimiter{}, sync.Mutex{}, clusterLim, clusterBurst, generalLimiter}
 
 	http.HandleFunc("/healthz", newHandleHealth(p))
 	http.HandleFunc("/ingestor/api/v1/push", newHandlePush(v, p, &server))
 
-	log.Info("Starting server at port " + strconv.Itoa(port))
-	if err := http.ListenAndServe(":"+strconv.Itoa(port), nil); err != nil {
-		log.Fatal(err)
+	if tlsCertFile == "" || tlsKeyFile == "" {
+		log.Info("Starting non-tls server at port " + strconv.Itoa(port))
+		if err := http.ListenAndServe(":"+strconv.Itoa(port), nil); err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		log.Info("Starting tls server at port " + strconv.Itoa(port))
+		if err := http.ListenAndServeTLS(":"+strconv.Itoa(port), tlsCertFile, tlsKeyFile, nil); err != nil {
+			log.Fatal(err)
+		}
 	}
+
 	go server.cleanLimits()
 	return &server
 }
