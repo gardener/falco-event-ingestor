@@ -6,9 +6,9 @@ spec:
   internalTrafficPolicy: Cluster
   ports:
   - name: ingestor
-    port: 3200
+    port: 443
     targetPort: 3200
   selector:
     app: falco-event-ingestor
   sessionAffinity: None
-  type: ClusterIP
+  type: LoadBalancer

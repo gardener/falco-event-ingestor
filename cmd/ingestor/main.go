@@ -22,6 +22,10 @@ var (
 	ImageTag string
 	// Password for the postgres user
 	postgresPassword string
+	// TlS certificate file
+	tlsCertFile string
+	// TlS key file
+	tlsKeyFile string
 	// Key to verify JWT tokens
 	verificationKey string
 	// Configuration file
@@ -36,7 +40,7 @@ var (
 		Use:   "ingestor",
 		Short: "Falco event ingestor for Postgres (" + Version + ")",
 		Run: func(cmd *cobra.Command, args []string) {
-			server.NewServer(validator, postgresConfig, viper.GetInt("server.port"), clusterDailyEventLimit)
+			server.NewServer(validator, postgresConfig, viper.GetInt("server.port"), clusterDailyEventLimit, tlsCertFile, tlsKeyFile)
 			if err := cmd.Help(); err != nil {
 				log.Fatalf("Could not output help command: %s", err)
 			}
@@ -82,7 +86,9 @@ func main() {
 	rootCmd.Flags().StringVarP(&configFile, "config-file", "", "", "configuration file")
 	rootCmd.Flags().StringVarP(&verificationKey, "key-file", "", "", "public key to verify JWT tokens")
 	rootCmd.Flags().StringVarP(&postgresPassword, "postgres-password-file", "", "", "password for the postgres user")
-	rootCmd.Flags().IntVar(&clusterDailyEventLimit, "cluster-daily-event-limit", 10000, "daily limit of falco events received from one cluster")
+	rootCmd.Flags().StringVarP(&tlsCertFile, "tls-certificate", "", "", "path to file containing tls certificate")
+	rootCmd.Flags().StringVarP(&tlsKeyFile, "tls-key", "", "", "path to file containing tls key")
+	rootCmd.Flags().IntVar(&clusterDailyEventLimit, "cluster-daily-event-limit", 10000, "daily limit of falco events received from one cluster") // do via config file
 	if err := rootCmd.MarkFlagRequired("config-file"); err != nil {
 		log.Fatalf("Could not mark flag required: %s", err)
 	}
