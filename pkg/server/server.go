@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/http/httputil"
 	"strconv"
 	"sync"
 	"time"
@@ -69,7 +70,7 @@ func NewServer(v *auth.Auth, p *postgres.PostgresConfig, port int, clusterDailyE
 		defer wg.Done()
 		log.Info("Starting health server at port " + strconv.Itoa(healthPort))
 		// if err := http.ListenAndServe(":"+strconv.Itoa(healthPort), healthMux); err != nil {
-		if err := healthServer.ListenAndServe(); err != nil {
+		if err := healthServer.ListenAndServeTLS(tlsCertFile, tlsKeyFile); err != nil {
 			log.Fatal(err)
 		}
 	}()
@@ -134,6 +135,9 @@ func newShootLimiter(lim rate.Limit, burst int) *clusterLimiter {
 func newHandleHealth(p *postgres.PostgresConfig) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log.Info("Hi i am the health check")
+		res, _ := httputil.DumpRequest(r, true)
+		log.Info(string(res))
+
 		if err := p.CheckHealth(); err != nil {
 			log.Error("Health check failed due to: " + err.Error())
 			http.Error(w, "database not ready", http.StatusServiceUnavailable)
@@ -148,6 +152,9 @@ func newHandleHealth(p *postgres.PostgresConfig) func(http.ResponseWriter, *http
 
 func newHandlePush(v *auth.Auth, p *postgres.PostgresConfig, s *Server) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		log.Info("Ingestor is probed")
+		res, _ := httputil.DumpRequest(r, true)
+		log.Info(string(res))
 		if !s.generalLimiter.Allow() {
 			log.Error("Too many requests: limiting all incoming requests")
 			http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
