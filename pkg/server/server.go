@@ -43,22 +43,35 @@ func NewServer(v *auth.Auth, p *postgres.PostgresConfig, port int, clusterDailyE
 
 	server := Server{v, p, map[string]*clusterLimiter{}, sync.Mutex{}, clusterLim, clusterBurst, generalLimiter}
 
-	http.HandleFunc("/healthz", newHandleHealth(p))
-	http.HandleFunc("/ingestor/api/v1/push", newHandlePush(v, p, &server))
+	healthPort := 3210
+	healthMux := http.NewServeMux()
+	healthMux.HandleFunc("/healthz", newHandleHealth(p))
+
+	ingestorMux := http.NewServeMux()
+	ingestorMux.HandleFunc("/ingestor/api/v1/push", newHandlePush(v, p, &server))
 
 	if tlsCertFile == "" || tlsKeyFile == "" {
-		log.Info("Starting non-tls server at port " + strconv.Itoa(port))
-		if err := http.ListenAndServe(":"+strconv.Itoa(port), nil); err != nil {
-			log.Fatal(err)
-		}
+		go func() {
+			log.Info("Starting non-tls server at port " + strconv.Itoa(port))
+			if err := http.ListenAndServe(":"+strconv.Itoa(port), ingestorMux); err != nil {
+				log.Fatal(err)
+			}
+		}()
 	} else {
-		log.Info("Starting tls server at port " + strconv.Itoa(port))
-		if err := http.ListenAndServeTLS(":"+strconv.Itoa(port), tlsCertFile, tlsKeyFile, nil); err != nil {
-			log.Fatal(err)
-		}
+		go func() {
+			log.Info("Starting tls server at port " + strconv.Itoa(port))
+			if err := http.ListenAndServeTLS(":"+strconv.Itoa(port), tlsCertFile, tlsKeyFile, ingestorMux); err != nil {
+				log.Fatal(err)
+			}
+		}()
+	}
+	go server.cleanLimits()
+
+	log.Info("Starting health server at port " + strconv.Itoa(healthPort))
+	if err := http.ListenAndServe(":"+strconv.Itoa(healthPort), healthMux); err != nil {
+		log.Fatal(err)
 	}
 
-	go server.cleanLimits()
 	return &server
 }
 
