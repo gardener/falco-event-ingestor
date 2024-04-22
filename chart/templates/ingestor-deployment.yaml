@@ -102,5 +102,13 @@ spec:
               items:
               - key: config.yaml
                 path: config.yaml
-
+      topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: topology.kubernetes.io/zone
+            whenUnsatisfiable: DoNotSchedule
+            labelSelector:
+              matchLabels:
+                app: falco-event-ingestor
+            matchLabelKeys:
+              - pod-template-hash
 
