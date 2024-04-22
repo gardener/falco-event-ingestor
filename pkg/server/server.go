@@ -43,35 +43,58 @@ func NewServer(v *auth.Auth, p *postgres.PostgresConfig, port int, clusterDailyE
 
 	server := Server{v, p, map[string]*clusterLimiter{}, sync.Mutex{}, clusterLim, clusterBurst, generalLimiter}
 
-	healthPort := 3210
+	healthPort := 8000
 	healthMux := http.NewServeMux()
 	healthMux.HandleFunc("/healthz", newHandleHealth(p))
+	healthServer := &http.Server{
+		Addr:         ":" + strconv.Itoa(healthPort),
+		WriteTimeout: 10 * time.Second,
+		ReadTimeout:  10 * time.Second,
+		Handler:      healthMux,
+	}
 
 	ingestorMux := http.NewServeMux()
 	ingestorMux.HandleFunc("/ingestor/api/v1/push", newHandlePush(v, p, &server))
+	ingestorServer := &http.Server{
+		Addr:         ":" + strconv.Itoa(port),
+		WriteTimeout: 10 * time.Second,
+		ReadTimeout:  10 * time.Second,
+		Handler:      ingestorMux,
+	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		log.Info("Starting health server at port " + strconv.Itoa(healthPort))
+		// if err := http.ListenAndServe(":"+strconv.Itoa(healthPort), healthMux); err != nil {
+		if err := healthServer.ListenAndServe(); err != nil {
+			log.Fatal(err)
+		}
+	}()
 
 	if tlsCertFile == "" || tlsKeyFile == "" {
 		go func() {
+			defer wg.Done()
 			log.Info("Starting non-tls server at port " + strconv.Itoa(port))
-			if err := http.ListenAndServe(":"+strconv.Itoa(port), ingestorMux); err != nil {
+			// if err := ingestorServer.ListenAndServe(":"+strconv.Itoa(port), ingestorMux); err != nil {
+			if err := ingestorServer.ListenAndServe(); err != nil {
 				log.Fatal(err)
 			}
 		}()
 	} else {
 		go func() {
+			defer wg.Done()
 			log.Info("Starting tls server at port " + strconv.Itoa(port))
-			if err := http.ListenAndServeTLS(":"+strconv.Itoa(port), tlsCertFile, tlsKeyFile, ingestorMux); err != nil {
+			if err := ingestorServer.ListenAndServeTLS(tlsCertFile, tlsKeyFile); err != nil {
 				log.Fatal(err)
 			}
 		}()
 	}
 	go server.cleanLimits()
 
-	log.Info("Starting health server at port " + strconv.Itoa(healthPort))
-	if err := http.ListenAndServe(":"+strconv.Itoa(healthPort), healthMux); err != nil {
-		log.Fatal(err)
-	}
-
+	wg.Wait()
 	return &server
 }
 
@@ -110,6 +133,7 @@ func newShootLimiter(lim rate.Limit, burst int) *clusterLimiter {
 
 func newHandleHealth(p *postgres.PostgresConfig) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		log.Info("Hi i am the health check")
 		if err := p.CheckHealth(); err != nil {
 			log.Error("Health check failed due to: " + err.Error())
 			http.Error(w, "database not ready", http.StatusServiceUnavailable)
