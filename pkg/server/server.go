@@ -5,11 +5,11 @@
 package server
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
-	"net/http/httputil"
 	"strconv"
 	"sync"
 	"time"
@@ -47,20 +47,16 @@ func NewServer(v *auth.Auth, p *postgres.PostgresConfig, port int, clusterDailyE
 	healthPort := 8000
 	healthMux := http.NewServeMux()
 	healthMux.HandleFunc("/healthz", newHandleHealth(p))
-	healthServer := &http.Server{
-		Addr:         ":" + strconv.Itoa(healthPort),
-		WriteTimeout: 10 * time.Second,
-		ReadTimeout:  10 * time.Second,
-		Handler:      healthMux,
-	}
 
 	ingestorMux := http.NewServeMux()
 	ingestorMux.HandleFunc("/ingestor/api/v1/push", newHandlePush(v, p, &server))
+	tlsCfg := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
 	ingestorServer := &http.Server{
-		Addr:         ":" + strconv.Itoa(port),
-		WriteTimeout: 10 * time.Second,
-		ReadTimeout:  10 * time.Second,
-		Handler:      ingestorMux,
+		Addr:      ":" + strconv.Itoa(port),
+		Handler:   ingestorMux,
+		TLSConfig: tlsCfg,
 	}
 
 	wg := sync.WaitGroup{}
@@ -69,8 +65,7 @@ func NewServer(v *auth.Auth, p *postgres.PostgresConfig, port int, clusterDailyE
 	go func() {
 		defer wg.Done()
 		log.Info("Starting health server at port " + strconv.Itoa(healthPort))
-		// if err := http.ListenAndServe(":"+strconv.Itoa(healthPort), healthMux); err != nil {
-		if err := healthServer.ListenAndServeTLS(tlsCertFile, tlsKeyFile); err != nil {
+		if err := http.ListenAndServe(":"+strconv.Itoa(healthPort), healthMux); err != nil {
 			log.Fatal(err)
 		}
 	}()
@@ -78,8 +73,7 @@ func NewServer(v *auth.Auth, p *postgres.PostgresConfig, port int, clusterDailyE
 	if tlsCertFile == "" || tlsKeyFile == "" {
 		go func() {
 			defer wg.Done()
-			log.Info("Starting non-tls server at port " + strconv.Itoa(port))
-			// if err := ingestorServer.ListenAndServe(":"+strconv.Itoa(port), ingestorMux); err != nil {
+			log.Info("Starting non-tls ingestor server at port " + strconv.Itoa(port))
 			if err := ingestorServer.ListenAndServe(); err != nil {
 				log.Fatal(err)
 			}
@@ -87,7 +81,7 @@ func NewServer(v *auth.Auth, p *postgres.PostgresConfig, port int, clusterDailyE
 	} else {
 		go func() {
 			defer wg.Done()
-			log.Info("Starting tls server at port " + strconv.Itoa(port))
+			log.Info("Starting tls ingestor server at port " + strconv.Itoa(port))
 			if err := ingestorServer.ListenAndServeTLS(tlsCertFile, tlsKeyFile); err != nil {
 				log.Fatal(err)
 			}
@@ -134,10 +128,6 @@ func newShootLimiter(lim rate.Limit, burst int) *clusterLimiter {
 
 func newHandleHealth(p *postgres.PostgresConfig) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		log.Info("Hi i am the health check")
-		res, _ := httputil.DumpRequest(r, true)
-		log.Info(string(res))
-
 		if err := p.CheckHealth(); err != nil {
 			log.Error("Health check failed due to: " + err.Error())
 			http.Error(w, "database not ready", http.StatusServiceUnavailable)
@@ -152,9 +142,6 @@ func newHandleHealth(p *postgres.PostgresConfig) func(http.ResponseWriter, *http
 
 func newHandlePush(v *auth.Auth, p *postgres.PostgresConfig, s *Server) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		log.Info("Ingestor is probed")
-		res, _ := httputil.DumpRequest(r, true)
-		log.Info(string(res))
 		if !s.generalLimiter.Allow() {
 			log.Error("Too many requests: limiting all incoming requests")
 			http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
