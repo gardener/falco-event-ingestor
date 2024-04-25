@@ -104,6 +104,7 @@ spec:
                 path: config.yaml
       topologySpreadConstraints:
           - maxSkew: 1
+            minDomains: 2
             topologyKey: topology.kubernetes.io/zone
             whenUnsatisfiable: DoNotSchedule
             labelSelector:
