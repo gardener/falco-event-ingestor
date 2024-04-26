@@ -5,6 +5,7 @@
 package server
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -43,22 +44,52 @@ func NewServer(v *auth.Auth, p *postgres.PostgresConfig, port int, clusterDailyE
 
 	server := Server{v, p, map[string]*clusterLimiter{}, sync.Mutex{}, clusterLim, clusterBurst, generalLimiter}
 
-	http.HandleFunc("/healthz", newHandleHealth(p))
-	http.HandleFunc("/ingestor/api/v1/push", newHandlePush(v, p, &server))
+	healthPort := 8000
+	healthMux := http.NewServeMux()
+	healthMux.HandleFunc("/healthz", newHandleHealth(p))
 
-	if tlsCertFile == "" || tlsKeyFile == "" {
-		log.Info("Starting non-tls server at port " + strconv.Itoa(port))
-		if err := http.ListenAndServe(":"+strconv.Itoa(port), nil); err != nil {
-			log.Fatal(err)
-		}
-	} else {
-		log.Info("Starting tls server at port " + strconv.Itoa(port))
-		if err := http.ListenAndServeTLS(":"+strconv.Itoa(port), tlsCertFile, tlsKeyFile, nil); err != nil {
-			log.Fatal(err)
-		}
+	ingestorMux := http.NewServeMux()
+	ingestorMux.HandleFunc("/ingestor/api/v1/push", newHandlePush(v, p, &server))
+	tlsCfg := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
+	ingestorServer := &http.Server{
+		Addr:      ":" + strconv.Itoa(port),
+		Handler:   ingestorMux,
+		TLSConfig: tlsCfg,
 	}
 
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		log.Info("Starting health server at port " + strconv.Itoa(healthPort))
+		if err := http.ListenAndServe(":"+strconv.Itoa(healthPort), healthMux); err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	if tlsCertFile == "" || tlsKeyFile == "" {
+		go func() {
+			defer wg.Done()
+			log.Info("Starting non-tls ingestor server at port " + strconv.Itoa(port))
+			if err := ingestorServer.ListenAndServe(); err != nil {
+				log.Fatal(err)
+			}
+		}()
+	} else {
+		go func() {
+			defer wg.Done()
+			log.Info("Starting tls ingestor server at port " + strconv.Itoa(port))
+			if err := ingestorServer.ListenAndServeTLS(tlsCertFile, tlsKeyFile); err != nil {
+				log.Fatal(err)
+			}
+		}()
+	}
 	go server.cleanLimits()
+
+	wg.Wait()
 	return &server
 }
 
