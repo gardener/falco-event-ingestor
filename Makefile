@@ -10,6 +10,7 @@ HACK_DIR           := $(REPO_ROOT)/hack
 VERSION            := $(shell cat "$(REPO_ROOT)/VERSION")
 EFFECTIVE_VERSION  := $(VERSION)-$(shell git rev-parse HEAD)
 LD_FLAGS           := ""
+NAMESPACE          := default
 
 .PHONY: start
 start:
@@ -18,6 +19,10 @@ start:
 			--config-file=${CONTROL_KUBECONFIG} \
 			--key-file=${CONTROL_KUBECONFIG} \
 			--postgress-password-file=${CONTROL_KUBECONFIG} \
+
+.PHONY: deploy
+deploy: release
+	helm template ingestor chart/ --values chart/values.yaml | kubectl apply -f - -n $(NAMESPACE)
 
 #################################################################
 # Rules related to formatting and linting                       #
