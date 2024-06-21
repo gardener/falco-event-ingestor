@@ -18,7 +18,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const INSERT_STATEMENT = "INSERT INTO falco_events(landscape, project, cluster, uuid, hostname, time, rule, priority, tags, source, message) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)"
+const INSERT_STATEMENT = "INSERT INTO falco_events(landscape, project, cluster, uuid, hostname, time, rule, priority, tags, source, message, output_fields) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)"
 
 var REQUIRED_FIELDS = []string{"landscape", "project", "cluster", "uuid", "hostname", "time", "rule", "priority", "tags", "source"}
 
@@ -128,7 +128,11 @@ func (pgconf *PostgresConfig) Insert(event *EventStruct) {
 		log.Errorf("Error inserting event into database: %s", err)
 	}
 
-	_, err2 := pgconf.stmt.Exec(clusterIdentity.landscape, clusterIdentity.project, clusterIdentity.cluster, clusterIdentity.uuid, event.Hostname, event.Time, event.Rule, event.Priority, event.Tags, event.Source, event.Output)
+	outputJson, err := json.Marshal(event.OutputFields)
+	if err != nil {
+		log.Errorf("Failed to marshal")
+	}
+	_, err2 := pgconf.stmt.Exec(clusterIdentity.landscape, clusterIdentity.project, clusterIdentity.cluster, clusterIdentity.uuid, event.Hostname, event.Time, event.Rule, event.Priority, event.Tags, event.Source, event.Output, outputJson)
 	if err2 != nil {
 		log.Errorf("Error inserting event into database: %s", err2)
 		return

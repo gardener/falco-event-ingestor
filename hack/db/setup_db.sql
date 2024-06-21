@@ -18,9 +18,10 @@ CREATE TABLE falco_events (
     time timestamp,
     rule varchar(80),
     priority char(10),
-    tags VARCHAR(126),
-    source CHAR(20),
-    message VARCHAR(5000)
+    tags varchar(126),
+    source char(20),
+    message varchar(5000),
+    output_fields jsonb
 );
 -- CREATE INDEX ON landscape
 CREATE INDEX project_index ON falco_events (project);

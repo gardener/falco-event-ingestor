@@ -1,6 +1,6 @@
 ingestor:
   ingressDomain: &theIngress ""
-  image: europe-docker.pkg.dev/gardener-project/public/gardener/falco-event-ingestor
+  image: europe-docker.pkg.dev/gardener-project/releases/gardener/falco-event-ingestor
   tag: 0.0.1
   publicKey: ""
   commonName: *theIngress
