@@ -17,9 +17,9 @@ CREATE TABLE falco_events (
     hostname varchar(255),
     time timestamp,
     rule varchar(80),
-    priority char(10),
+    priority varchar(30),
     tags varchar(126),
-    source char(20),
+    source varchar(50),
     message varchar(5000),
     output_fields jsonb
 );
