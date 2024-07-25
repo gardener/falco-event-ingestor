@@ -15,7 +15,10 @@ import (
 	"time"
 
 	"github.com/gardener/falco-event-ingestor/pkg/auth"
+	falcometrics "github.com/gardener/falco-event-ingestor/pkg/metrics"
 	"github.com/gardener/falco-event-ingestor/pkg/postgres"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
 )
@@ -48,6 +51,10 @@ func NewServer(v *auth.Auth, p *postgres.PostgresConfig, port int, clusterDailyE
 	healthMux := http.NewServeMux()
 	healthMux.HandleFunc("/healthz", newHandleHealth(p))
 
+	metricsPort := 8080
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("/metrics", promhttp.Handler())
+
 	ingestorMux := http.NewServeMux()
 	ingestorMux.HandleFunc("/ingestor/api/v1/push", newHandlePush(v, p, &server))
 	tlsCfg := &tls.Config{
@@ -60,7 +67,15 @@ func NewServer(v *auth.Auth, p *postgres.PostgresConfig, port int, clusterDailyE
 	}
 
 	wg := sync.WaitGroup{}
-	wg.Add(2)
+	wg.Add(3)
+
+	go func() {
+		defer wg.Done()
+		log.Info("Starting metrics server at port " + strconv.Itoa(metricsPort))
+		if err := http.ListenAndServe(":"+strconv.Itoa(metricsPort), metricsMux); err != nil {
+			log.Fatal(err)
+		}
+	}()
 
 	go func() {
 		defer wg.Done()
@@ -102,8 +117,10 @@ func (s *Server) checkLimits(clusterId string) error {
 	shootLimit := s.clusterLimits[clusterId]
 	shootLimit.lastSeen = time.Now()
 	if !shootLimit.limit.Allow() {
+		falcometrics.ClusterLimit.With(prometheus.Labels{"cluster": clusterId}).Set(1)
 		return fmt.Errorf("limiting instance %s", clusterId)
 	}
+	falcometrics.ClusterLimit.With(prometheus.Labels{"cluster": clusterId}).Set(0)
 	return nil
 }
 
@@ -143,10 +160,12 @@ func newHandleHealth(p *postgres.PostgresConfig) func(http.ResponseWriter, *http
 func newHandlePush(v *auth.Auth, p *postgres.PostgresConfig, s *Server) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !s.generalLimiter.Allow() {
+			falcometrics.Limit.Set(1)
 			log.Error("Too many requests: limiting all incoming requests")
 			http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
 			return
 		}
+		falcometrics.Limit.Set(0)
 
 		token, err := v.ExtractToken(r)
 		if err != nil {
@@ -181,6 +200,9 @@ func newHandlePush(v *auth.Auth, p *postgres.PostgresConfig, s *Server) func(htt
 			http.Error(w, "token and event are mismatched", http.StatusBadRequest)
 			return
 		}
+
+		falcometrics.Requests.Add(1)
+		falcometrics.ClusterRequests.With(prometheus.Labels{"cluster": tokenValues.ClusterId}).Add(1)
 
 		p.Insert(eventStruct)
 		w.WriteHeader(http.StatusCreated)
