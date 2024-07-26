@@ -1,14 +1,41 @@
--- CREATE DB
-CREATE ROLE falco_master LOGIN password '';
-CREATE ROLE falco_reader LOGIN password '';
-CREATE ROLE falco_writer LOGIN password '';
+-- Create roles
+DO
+$do$
+BEGIN
+   IF EXISTS (
+      SELECT FROM pg_catalog.pg_roles
+      WHERE  rolname = 'gardener') THEN
 
-CREATE DATABASE falco OWNER falco_master;
+      RAISE NOTICE 'Role "gardener" already exists. Skipping.';
+   ELSE
+      CREATE ROLE gardener LOGIN PASSWORD '';
+   END IF;
+END
+$do$;
+
+DO
+$do$
+BEGIN
+   IF EXISTS (
+      SELECT FROM pg_catalog.pg_roles
+      WHERE  rolname = 'gardener_rw') THEN
+
+      RAISE NOTICE 'Role "gardener_rw" already exists. Skipping.';
+   ELSE
+      CREATE ROLE gardener_rw LOGIN PASSWORD '';
+   END IF;
+END
+$do$;
+
+
+-- Create Database
+CREATE DATABASE falco OWNER gardener;
 SELECT 'CREATE DATABASE falco'
 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'falco')\gexec
 
+-- Create Table
 \c falco;
-CREATE TABLE falco_events (
+CREATE TABLE IF NOT EXISTS falco_events (
     id BIGSERIAL PRIMARY KEY,
     landscape varchar(50),
     project varchar(50),
@@ -23,16 +50,18 @@ CREATE TABLE falco_events (
     message varchar(5000),
     output_fields jsonb
 );
--- CREATE INDEX ON landscape
-CREATE INDEX project_index ON falco_events (project);
-CREATE INDEX cluster_index ON falco_events (cluster);
-CREATE INDEX uuid_index ON falco_events (uuid);
-CREATE INDEX hostname_index ON falco_events (hostname);
-CREATE INDEX time_index ON falco_events (time);
-CREATE INDEX rule_index ON falco_events (rule);
-CREATE INDEX priority_index ON falco_events (priority);
-CREATE INDEX tags_index ON falco_events (tags);
-CREATE INDEX source_index ON falco_events (source);
--- We need additional permissions for the writer
-GRANT ALL PRIVILEGES ON TABLE falco_events TO falco_writer;
-GRANT ALL PRIVILEGES ON SEQUENCE falco_events_id_seq TO falco_writer;
+
+-- Create Index
+CREATE INDEX IF NOT EXISTS project_index ON falco_events (project);
+CREATE INDEX IF NOT EXISTS cluster_index ON falco_events (cluster);
+CREATE INDEX IF NOT EXISTS uuid_index  ON falco_events (uuid);
+CREATE INDEX IF NOT EXISTS hostname_index ON falco_events (hostname);
+CREATE INDEX IF NOT EXISTS time_index ON falco_events (time);
+CREATE INDEX IF NOT EXISTS rule_index ON falco_events (rule);
+CREATE INDEX IF NOT EXISTS priority_index ON falco_events (priority);
+CREATE INDEX IF NOT EXISTS tags_index ON falco_events (tags);
+CREATE INDEX IF NOT EXISTS source_index ON falco_events (source);
+
+-- Grant permissions
+GRANT SELECT, INSERT, UPDATE ON TABLE falco_events TO gardener_rw;
+GRANT CONNECT ON DATABASE falco TO gardener_rw;
