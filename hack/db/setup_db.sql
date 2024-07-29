@@ -4,11 +4,11 @@ $do$
 BEGIN
    IF EXISTS (
       SELECT FROM pg_catalog.pg_roles
-      WHERE  rolname = 'gardener') THEN
+      WHERE  rolname = 'gardener_1') THEN
 
-      RAISE NOTICE 'Role "gardener" already exists. Skipping.';
+      RAISE NOTICE 'Role "gardener_1" already exists. Skipping.';
    ELSE
-      CREATE ROLE gardener LOGIN PASSWORD '';
+      CREATE ROLE gardener_1 LOGIN PASSWORD ${password_1};
    END IF;
 END
 $do$;
@@ -18,18 +18,18 @@ $do$
 BEGIN
    IF EXISTS (
       SELECT FROM pg_catalog.pg_roles
-      WHERE  rolname = 'gardener_rw') THEN
+      WHERE  rolname = 'gardener_2') THEN
 
-      RAISE NOTICE 'Role "gardener_rw" already exists. Skipping.';
+      RAISE NOTICE 'Role "gardener_2" already exists. Skipping.';
    ELSE
-      CREATE ROLE gardener_rw LOGIN PASSWORD '';
+      CREATE ROLE gardener_2 LOGIN PASSWORD ${password_2};
    END IF;
 END
 $do$;
 
 
 -- Create Database
-CREATE DATABASE falco OWNER gardener;
+CREATE DATABASE falco OWNER postgres;
 SELECT 'CREATE DATABASE falco'
 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'falco')\gexec
 
@@ -63,5 +63,7 @@ CREATE INDEX IF NOT EXISTS tags_index ON falco_events (tags);
 CREATE INDEX IF NOT EXISTS source_index ON falco_events (source);
 
 -- Grant permissions
-GRANT SELECT, INSERT, UPDATE ON TABLE falco_events TO gardener_rw;
-GRANT CONNECT ON DATABASE falco TO gardener_rw;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE falco_events TO gardener_1;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE falco_events TO gardener_2;
+GRANT CONNECT ON DATABASE falco TO gardener_1;
+GRANT CONNECT ON DATABASE falco TO gardener_2;
