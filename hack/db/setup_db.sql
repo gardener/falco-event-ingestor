@@ -8,7 +8,7 @@ BEGIN
 
       RAISE NOTICE 'Role "gardener_1" already exists. Skipping.';
    ELSE
-      CREATE ROLE gardener_1 LOGIN PASSWORD ${password_1};
+      CREATE ROLE gardener_1 LOGIN PASSWORD '${password_1}';
    END IF;
 END
 $do$;
@@ -22,7 +22,7 @@ BEGIN
 
       RAISE NOTICE 'Role "gardener_2" already exists. Skipping.';
    ELSE
-      CREATE ROLE gardener_2 LOGIN PASSWORD ${password_2};
+      CREATE ROLE gardener_2 LOGIN PASSWORD '${password_2}';
    END IF;
 END
 $do$;
