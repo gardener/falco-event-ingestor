@@ -10,6 +10,7 @@ ingestor:
 
 postgres:
   user: gardener
+  pw: ""
   host: falco-event-db.falco-event-storage.svc.cluster.local
   port: 5432
   dbname: falco

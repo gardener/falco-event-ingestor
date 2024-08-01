@@ -83,7 +83,7 @@ spec:
               - key: public.pem
                 path: token/public.pem
           - secret:
-              name: gardener.falco-event-db.credentials.postgresql.acid.zalan.do
+              name: db-password
               items:
               - key: password
                 path: psql/password
