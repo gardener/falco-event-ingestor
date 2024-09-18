@@ -1,8 +1,8 @@
+{{- if .Values.ingestor.useIngress }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   annotations:
-    nginx.ingress.kubernetes.io/configuration-snippet: proxy_set_header X-Scope-OrgID falco;
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/use-port-in-redirects: "true"
   labels:
@@ -25,3 +25,4 @@ spec:
   - hosts:
     - {{ .Values.ingestor.ingressDomain }}
     secretName: tls
+{{- end }}

@@ -3,12 +3,23 @@ kind: Service
 metadata:
   name: falco-event-ingestor
 spec:
+  {{- if not .Values.ingestor.useIngress }}
   externalTrafficPolicy: Local
+  {{- end}}
   ports:
   - name: ingestor
+  {{- if .Values.ingestor.useIngress }}
+    port: 3200
+    targetPort: 3200
+  {{- else }}
     port: 443
     targetPort: 3200
+  {{- end }}
   selector:
     app: falco-event-ingestor
   sessionAffinity: None
+  {{- if .Values.ingestor.useIngress }}
+  type: ClusterIP
+  {{- else }}
   type: LoadBalancer
+  {{- end }}
