@@ -1,18 +1,30 @@
 ingestor:
-  ingressDomain: &theIngress ""
-  image: europe-docker.pkg.dev/gardener-project/releases/gardener/falco-event-ingestor
-  tag: 0.0.1
+  ingressDomain: &theIngress "ingestor.ingress.garden.dev.k8s.ondemand.com"
+  image: 
+    repository: europe-docker.pkg.dev/gardener-project/releases/gardener/falco-event-ingestor
+    tag: 0.0.2
   publicKey: ""
   commonName: *theIngress
   dnsNames: ""
   clusterDailyEventLimit: 4000
-  ingestorSideTLS: False
+  ingestorTLS: false
+  useIngress: true
+  ingressClassName: nginx-ingress-gardener
+  replicas: 2
 
 postgres:
   user: gardener
   host: falco-event-db.falco-event-storage.svc.cluster.local
   port: 5432
   dbname: falco
+  password:
 
 server:
   port: 3200
+
+resources:
+  limits:
+    memory: 400Mi
+  requests:
+    cpu: 10m
+    memory: 32Mi

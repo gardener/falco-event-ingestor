@@ -7,7 +7,7 @@ metadata:
   name: falco-event-ingestor
 spec:
   progressDeadlineSeconds: 30
-  replicas: 2
+  replicas: {{ .Values.ingestor.replicas }}
   revisionHistoryLimit: 2
   selector:
     matchLabels:
@@ -29,7 +29,7 @@ spec:
       automountServiceAccountToken: false
       containers:
       - name: ingestor
-        image: {{ .Values.ingestor.image }}:{{ .Values.ingestor.tag }}
+        image: {{ include "image" .Values.ingestor.image }}
         imagePullPolicy: Always
         args:
         - --config-file
@@ -40,22 +40,18 @@ spec:
         - /etc/falco-event-ingestor/psql/password
         - --cluster-daily-event-limit
         - "{{ .Values.ingestor.clusterDailyEventLimit }}"
-      {{ if .Values.ingestor.ingestorSideTLS }}
+      {{- if .Values.ingestor.ingestoreTLS }}
         - --tls-certificate
         - /etc/falco-event-ingestor/tls/tls.crt
         - --tls-key
         - /etc/falco-event-ingestor/tls/tls.key
-      {{ end }}
+      {{- end }}
         ports:
         - containerPort: 3200
           name: web
           protocol: TCP
         resources:
-          limits:
-            memory: 400Mi
-          requests:
-            cpu: 10m
-            memory: 32Mi
+{{ toYaml .Values.resources | indent 10 }}
         volumeMounts:
         - mountPath: /etc/falco-event-ingestor
           name: all-volumes
@@ -70,23 +66,24 @@ spec:
           timeoutSeconds: 2
       dnsPolicy: ClusterFirst
       restartPolicy: Always
-      schedulerName: default-scheduler
-      securityContext: {}
-      terminationGracePeriodSeconds: 10
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+      terminationGracePeriodSeconds: 30
       volumes:
       - name: all-volumes
         projected:
           sources:
           - secret:
-              name: token-verification-key
+              name: ingestor-secret
               items:
               - key: public.pem
                 path: token/public.pem
-          - secret:
-              name: gardener.falco-event-db.credentials.postgresql.acid.zalan.do
-              items:
-              - key: password
+              - key: postgresPassword
                 path: psql/password
+          {{- if .Values.ingestor.ingestoreTLS }}
           - secret:
               name: tls-secret
               items:
@@ -94,6 +91,7 @@ spec:
                 path: tls/tls.key
               - key: tls.crt
                 path: tls/tls.crt
+          {{- end }}
           - configMap:
               name: ingestor-configmap
               items:
