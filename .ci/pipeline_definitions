@@ -24,6 +24,15 @@ falco-event-ingestor:
                 confidentiality_requirement: 'low'
                 integrity_requirement: 'low'
                 availability_requirement: 'low'
+        helmcharts:
+        - name: falco-event-ingestor
+          dir: chart
+          registry: europe-docker.pkg.dev/gardener-project/snapshots/charts/falco
+          mappings:
+          - ref: ocm-resource:falco-event-ingestor.repository
+            attribute: ingestor.image
+          - ref: ocm-resource:falco-event-ingestor.tag
+            attribute: ingestor.tag
     steps:
       verify:
         image: golang:1.22.3
