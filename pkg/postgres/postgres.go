@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/huandu/go-sqlbuilder"
 	_ "github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
 )
@@ -30,13 +31,14 @@ type ClusterIdentity struct {
 }
 
 type PostgresConfig struct {
-	user     string
-	password string
-	host     string
-	port     int
-	dbname   string
-	db       *sql.DB
-	stmt     *sql.Stmt
+	user              string
+	password          string
+	host              string
+	port              int
+	dbname            string
+	db                *sql.DB
+	stmt              *sql.Stmt
+	retentionDuration time.Duration
 }
 
 type EventStruct struct {
@@ -51,9 +53,14 @@ type EventStruct struct {
 	Hostname     string                     `json:"hostname"`
 }
 
-func NewPostgresConfig(user, password, host string, port int, dbname string) *PostgresConfig {
+func NewPostgresConfig(user, password, host string, port int, dbname string, retentionDays int) *PostgresConfig {
 	connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s", host, port, user, password, dbname)
 	log.Infof("Trying connection: host=%s port=%d user=%s password=%s dbname=%s", host, port, user, "******", dbname)
+
+	retentionDuration, err := time.ParseDuration(fmt.Sprintf("%dh", retentionDays * 24))
+	if err != nil {
+		log.Fatalf("Could not parse event retention days %v", err)
+	}
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
@@ -74,16 +81,22 @@ func NewPostgresConfig(user, password, host string, port int, dbname string) *Po
 	}
 
 	log.Info("Connection to database succeded")
+	log.Info(password)
 
-	return &PostgresConfig{
-		user:     user,
-		password: password,
-		host:     host,
-		port:     port,
-		dbname:   dbname,
-		db:       db,
-		stmt:     stmt,
+	postgresConfigInstance := PostgresConfig{
+		user:              user,
+		password:          password,
+		host:              host,
+		port:              port,
+		dbname:            dbname,
+		db:                db,
+		stmt:              stmt,
+		retentionDuration: retentionDuration,
 	}
+
+	go postgresConfigInstance.DeleteLoop(time.Second*60)
+
+	return &postgresConfigInstance
 }
 
 func (c *PostgresConfig) SetPassword(password string) {
@@ -120,6 +133,23 @@ func prepareInsert(db *sql.DB) (*sql.Stmt, error) {
 		return nil, fmt.Errorf("could not prepare sql statement: %s due to error: %s", INSERT_STATEMENT, err.Error())
 	}
 	return stmt, nil
+}
+
+func (pgconf *PostgresConfig) DeleteLoop(frequency time.Duration) {
+	for {
+		sql, args := buildDeleteStatement(pgconf.retentionDuration)
+
+		// --------------------------- DO NOT ENABLE YET----------------------------
+		fmt.Println(sql)
+		fmt.Println(args...)
+		// _, err := pgconf.db.Query(sql, args...)
+		// if err != nil {
+		// 	log.Errorf("Delete query failed: %v", err)
+		// }
+		// --------------------------- DO NOT ENABLE YET----------------------------
+
+		time.Sleep(frequency)
+	}
 }
 
 func (pgconf *PostgresConfig) Insert(event *EventStruct) {
@@ -159,4 +189,15 @@ func (pgconf *PostgresConfig) CheckHealth() error {
 	}
 
 	return nil
+}
+
+func buildDeleteStatement(maxAge time.Duration) (string, []interface{}) {
+	maxTime := time.Now().UTC().Add(-maxAge)
+
+	sb := sqlbuilder.PostgreSQL.NewDeleteBuilder()
+	sb.DeleteFrom("falco_events")
+	sb.Where(sb.LessThan("time", maxTime))
+
+	sql, args := sb.Build()
+	return sql, args
 }
