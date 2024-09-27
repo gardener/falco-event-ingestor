@@ -81,7 +81,6 @@ func NewPostgresConfig(user, password, host string, port int, dbname string, ret
 	}
 
 	log.Info("Connection to database succeded")
-	log.Info(password)
 
 	postgresConfigInstance := PostgresConfig{
 		user:              user,
