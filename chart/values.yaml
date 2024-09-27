@@ -6,7 +6,7 @@ ingestor:
   publicKey: ""
   commonName: *theIngress
   dnsNames: ""
-  clusterDailyEventLimit: 4000
+  clusterDailyEventLimit: 100000000000
   ingestorTLS: false
   useIngress: true
   ingressClassName: nginx-ingress-gardener
