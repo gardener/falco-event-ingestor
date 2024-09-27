@@ -5,6 +5,7 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/use-port-in-redirects: "true"
+    cert.gardener.cloud/purpose: managed
   labels:
     app: falco-event-ingestor
   name: falco-event-ingestor-ingress
