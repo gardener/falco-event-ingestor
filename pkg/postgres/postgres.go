@@ -57,7 +57,7 @@ func NewPostgresConfig(user, password, host string, port int, dbname string, ret
 	connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s", host, port, user, password, dbname)
 	log.Infof("Trying connection: host=%s port=%d user=%s password=%s dbname=%s", host, port, user, "******", dbname)
 
-	retentionDuration, err := time.ParseDuration(fmt.Sprintf("%dh", retentionDays * 24))
+	retentionDuration, err := time.ParseDuration(fmt.Sprintf("%dh", retentionDays*24))
 	if err != nil {
 		log.Fatalf("Could not parse event retention days %v", err)
 	}
@@ -93,7 +93,7 @@ func NewPostgresConfig(user, password, host string, port int, dbname string, ret
 		retentionDuration: retentionDuration,
 	}
 
-	go postgresConfigInstance.DeleteLoop(time.Second*60)
+	go postgresConfigInstance.DeleteLoop(time.Second * 60)
 
 	return &postgresConfigInstance
 }
