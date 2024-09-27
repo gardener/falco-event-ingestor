@@ -51,6 +51,7 @@ func initConfig(configFile string, verificationKey string, postgresPassword stri
 		viper.GetString("postgres.host"),
 		viper.GetInt("postgres.port"),
 		viper.GetString("postgres.dbname"),
+		viper.GetInt("postgres.retentionDays"),
 	)
 	return postgresConfig, validator
 }

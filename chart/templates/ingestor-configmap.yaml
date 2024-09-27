@@ -10,6 +10,7 @@ data:
       host: {{ .Values.postgres.host }}
       port: {{ .Values.postgres.port }}
       dbname: {{ .Values.postgres.dbname }}
+      retentionDays: {{ .Values.postgres.retentionDays }}
 
     server:
       port: {{ .Values.server.port }}

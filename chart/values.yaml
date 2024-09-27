@@ -18,6 +18,7 @@ postgres:
   port: 5432
   dbname: falco
   password:
+  retentionDays: 365
 
 server:
   port: 3200
