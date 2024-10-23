@@ -159,6 +159,7 @@ func newHandleHealth(p *postgres.PostgresConfig) func(http.ResponseWriter, *http
 
 func newHandlePush(v *auth.Auth, p *postgres.PostgresConfig, s *Server) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		startTime := time.Now()
 		if !s.generalLimiter.Allow() {
 			falcometrics.Limit.Set(1)
 			log.Error("Too many requests: limiting all incoming requests")
@@ -201,11 +202,11 @@ func newHandlePush(v *auth.Auth, p *postgres.PostgresConfig, s *Server) func(htt
 			return
 		}
 
-		falcometrics.Requests.Add(1)
-		falcometrics.ClusterRequests.With(prometheus.Labels{"cluster": tokenValues.ClusterId}).Add(1)
-
 		p.Insert(eventStruct)
 		w.WriteHeader(http.StatusCreated)
+
+		falcometrics.RequestsHist.Observe(time.Since(startTime).Seconds())
+		falcometrics.ClusterRequests.With(prometheus.Labels{"cluster": tokenValues.ClusterId}).Add(1)
 	}
 }
 

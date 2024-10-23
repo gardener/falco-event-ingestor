@@ -14,11 +14,12 @@ const (
 )
 
 var (
-	Requests = promauto.NewCounter(
-		prometheus.CounterOpts{
+	RequestsHist = promauto.NewHistogram(
+		prometheus.HistogramOpts{
 			Namespace: namespace,
 			Name:      "requests_total",
 			Help:      "Total number of successful insert requests.",
+			Buckets:   prometheus.DefBuckets,
 		},
 	)
 
