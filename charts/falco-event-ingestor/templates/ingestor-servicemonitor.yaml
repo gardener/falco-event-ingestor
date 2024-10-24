@@ -3,7 +3,7 @@ kind: ServiceMonitor
 metadata:
   labels:
     prometheus: garden
-  name: falco-event-storage
+  name: falco-event-ingestor
   namespace: {{ .Release.Namespace }}
 spec:
   endpoints:
