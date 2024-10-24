@@ -1,0 +1,11 @@
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: falco-event-ingestor
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: falco-event-ingestor
+  updatePolicy:
+    updateMode: Auto
