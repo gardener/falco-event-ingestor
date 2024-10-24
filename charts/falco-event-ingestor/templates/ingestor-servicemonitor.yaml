@@ -1,0 +1,17 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    prometheus: garden
+  name: falco-event-storage
+  namespace: {{ .Release.Namespace }}
+spec:
+  endpoints:
+  - port: metrics
+    relabelings:
+    - action: labelmap
+      regex: __meta_kubernetes_service_label_(.+)
+  namespaceSelector: {}
+  selector:
+    matchLabels:
+      app: falco-event-ingestor

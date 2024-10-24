@@ -3,6 +3,11 @@ kind: Service
 metadata:
   annotations:
     networking.resources.gardener.cloud/from-world-to-ports: '[{"protocol":"TCP","port":3200}]'
+    networking.resources.gardener.cloud/from-all-garden-scrape-targets-allowed-ports: '[{"port":8080,"protocol":"TCP"}]'
+    networking.resources.gardener.cloud/namespace-selectors: '[{"matchLabels":{"kubernetes.io/metadata.name":"garden"}}]'
+    networking.resources.gardener.cloud/pod-label-selector-namespace-alias: extensions
+  labels:
+    app: falco-event-ingestor
   name: falco-event-ingestor
 spec:
   {{- if not .Values.ingestor.useIngress }}
@@ -17,6 +22,10 @@ spec:
     port: 443
     targetPort: 3200
   {{- end }}
+  - name: metrics
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
   selector:
     app: falco-event-ingestor
   sessionAffinity: None
