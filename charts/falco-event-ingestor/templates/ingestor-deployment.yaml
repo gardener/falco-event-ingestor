@@ -79,6 +79,8 @@ spec:
           - secret:
               name: ingestor-secret
               items:
+              - key: token-keys.yaml
+                path: token/token-keys.yaml
               - key: public.pem
                 path: token/public.pem
               - key: postgresPassword
