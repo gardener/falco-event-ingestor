@@ -36,6 +36,8 @@ spec:
         - /etc/falco-event-ingestor/config.yaml
         - --key-file
         - /etc/falco-event-ingestor/token/public.pem
+        - --keys-file
+        - /etc/falco-event-ingestor/token/token-keys.yaml
         - --postgres-password-file
         - /etc/falco-event-ingestor/psql/password
         - --cluster-daily-event-limit

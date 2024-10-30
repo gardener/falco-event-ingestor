@@ -13,13 +13,27 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	log "github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v3"
 )
 
 type Auth struct {
-	publicKey *rsa.PublicKey
+	publicKey          *rsa.PublicKey
+	primaryPublicKey   *rsa.PublicKey
+	secondaryPublicKey *rsa.PublicKey
+}
+
+type tokenVerificationKeys struct {
+	Key1 tokenVerificationKey `yaml:"key_1"`
+	Key2 tokenVerificationKey `yaml:"key_2"`
+}
+
+type tokenVerificationKey struct {
+	PublicKey string    `yaml:"publicKey"`
+	CreatedAt time.Time `yaml:"created"`
 }
 
 type CustomClaims struct {
@@ -45,6 +59,40 @@ func (a *Auth) ExtractToken(r *http.Request) (*string, error) {
 		return nil, errors.New("invalid token")
 	}
 	return &splitToken[1], nil
+}
+
+func (a *Auth) ReadKeysFile(keysFile string) error {
+	fileContents, err := os.ReadFile(keysFile)
+	if err != nil {
+		return err
+	}
+
+	var tokenVerificationKeys tokenVerificationKeys
+	if err := yaml.Unmarshal(fileContents, &tokenVerificationKeys); err != nil {
+		return err
+	}
+
+	block1, _ := pem.Decode([]byte(tokenVerificationKeys.Key1.PublicKey))
+	pubKey1, err := x509.ParsePKIXPublicKey(block1.Bytes)
+	if err != nil {
+		return err
+	}
+
+	block2, _ := pem.Decode([]byte(tokenVerificationKeys.Key2.PublicKey))
+	pubKey2, err := x509.ParsePKIXPublicKey(block2.Bytes)
+	if err != nil {
+		return err
+	}
+
+	if tokenVerificationKeys.Key1.CreatedAt.After(tokenVerificationKeys.Key2.CreatedAt) {
+		a.primaryPublicKey = pubKey1.(*rsa.PublicKey)
+		a.secondaryPublicKey = pubKey2.(*rsa.PublicKey)
+	} else {
+		a.primaryPublicKey = pubKey2.(*rsa.PublicKey)
+		a.secondaryPublicKey = pubKey1.(*rsa.PublicKey)
+	}
+
+	return nil
 }
 
 func (a *Auth) LoadKey(keyFile string) error {
@@ -73,7 +121,7 @@ func (a *Auth) VerifyToken(tokenString string) (*TokenValues, error) {
 	claims := &CustomClaims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims,
 		func(token *jwt.Token) (interface{}, error) {
-			return a.publicKey, nil
+			return []jwt.VerificationKey{a.primaryPublicKey, a.secondaryPublicKey}, nil
 		},
 		jwt.WithAudience("falco-db"),
 		jwt.WithIssuer("urn:gardener:gardener-falco-extension"),
