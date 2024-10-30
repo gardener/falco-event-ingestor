@@ -72,10 +72,17 @@ func writePublicKeyFile(public *rsa.PublicKey, filename string) error {
 	if err != nil {
 		return err
 	}
+	err = pem.Encode(os.Stdout, block)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func TestMain(t *testing.T) {
+	wrongKey := createKey()
+	wrongPublic := &wrongKey.PublicKey
 
 	testKey = createKey()
 	public := &testKey.PublicKey
@@ -96,6 +103,9 @@ func TestMain(t *testing.T) {
 	if err := global_auth_obj.LoadKey(keyFilename); err != nil {
 		t.Fatalf("Loading key failed: %s", err.Error())
 	}
+	// TEST NEEDS TO BE UPDATED TODO
+	global_auth_obj.primaryPublicKey = wrongPublic
+	global_auth_obj.secondaryPublicKey = public
 }
 
 func TestVerifyValidToken(t *testing.T) {
@@ -110,6 +120,19 @@ func TestVerifyValidToken(t *testing.T) {
 		t.Fatalf("Token could not be verified: %s", err.Error())
 	}
 	t.Log("Valid token was accepted")
+}
+
+func TestVerifyInvalidClaimsToken(t *testing.T) {
+	individualClaims := map[string]string{"cluster-identity": "1234567"}
+	claims := createCustomClaims(individualClaims, time.Hour*24*7, issuer, "TestSubject", "0000", []string{"wrong-audience"})
+	token, err := createToken(testKey, jwt.SigningMethodRS256, claims)
+	if err != nil {
+		t.Fatalf("Could not create test jwt: %s", err)
+	}
+
+	if _, err := global_auth_obj.VerifyToken(token); err == nil {
+		t.Fatalf("Invalid claims in token were accepted: %s", err.Error())
+	}
 }
 
 func TestVerifyExpiredToken(t *testing.T) {
@@ -139,5 +162,18 @@ func TestVerifyWrongSigningToken(t *testing.T) {
 		t.Logf("Invalid token was declined: %s", err)
 	} else {
 		t.Fatalf("Invalid token was accepted")
+	}
+}
+
+func TestVerifyInvalidClusterIdToken(t *testing.T) {
+	individualClaims := map[string]string{"empty": "1234567"}
+	claims := createCustomClaims(individualClaims, time.Hour*24*7, issuer, "TestSubject", "0000", []string{"wrong-audience"})
+	token, err := createToken(testKey, jwt.SigningMethodRS256, claims)
+	if err != nil {
+		t.Fatalf("Could not create test jwt: %s", err)
+	}
+
+	if _, err := global_auth_obj.VerifyToken(token); err == nil {
+		t.Fatalf("Invalid token w/o cluster id was accepted: %s", err.Error())
 	}
 }

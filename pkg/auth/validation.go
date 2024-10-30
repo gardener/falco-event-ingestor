@@ -118,28 +118,43 @@ func (a *Auth) LoadKey(keyFile string) error {
 }
 
 func (a *Auth) VerifyToken(tokenString string) (*TokenValues, error) {
-	claims := &CustomClaims{}
-	token, err := jwt.ParseWithClaims(tokenString, claims,
-		func(token *jwt.Token) (interface{}, error) {
-			return []jwt.VerificationKey{a.primaryPublicKey, a.secondaryPublicKey}, nil
-		},
+	wantedClaims := []jwt.ParserOption{
 		jwt.WithAudience("falco-db"),
 		jwt.WithIssuer("urn:gardener:gardener-falco-extension"),
 		jwt.WithExpirationRequired(),
-		jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Name}),
-	)
+	}
+
+	parser := jwt.NewParser(wantedClaims...)
+	parts := strings.Split(tokenString, ".")
+	signedString := strings.ReplaceAll(strings.Join(parts[0:2], "."), "\n", "")
+
+	signature, err := parser.DecodeSegment(parts[2])
 	if err != nil {
+		return nil, fmt.Errorf("failed to decode signature: %w", err)
+	}
+
+	if err := jwt.SigningMethodRS256.Verify(signedString, signature, a.primaryPublicKey); err != nil {
+		log.Infof("Token verification failed with primary key %s", err)
+		if err = jwt.SigningMethodRS256.Verify(signedString, signature, a.secondaryPublicKey); err != nil {
+			log.Errorf("Token verification failed with secondary key %s", err)
+			return nil, err
+		}
+	}
+
+	claims := &CustomClaims{}
+	if _, _, err := parser.ParseUnverified(tokenString, claims); err != nil {
 		log.Errorf("Token parsing failed with %s", err)
 		return nil, err
 	}
 
-	if !token.Valid {
-		return nil, fmt.Errorf("invalid token")
+	claimsValidator := jwt.NewValidator(wantedClaims...)
+	if err := claimsValidator.Validate(claims); err != nil {
+		return nil, fmt.Errorf("invalid claims: %w", err)
 	}
 
 	clusterId, ok := claims.Custom["cluster-identity"]
 	if !ok {
-		return nil, errors.New("token has no cluster claim")
+		return nil, errors.New("token has no cluster identity claim")
 	}
 
 	return &TokenValues{
