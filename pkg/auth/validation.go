@@ -21,7 +21,6 @@ import (
 )
 
 type Auth struct {
-	publicKey          *rsa.PublicKey
 	primaryPublicKey   *rsa.PublicKey
 	secondaryPublicKey *rsa.PublicKey
 }
@@ -73,47 +72,25 @@ func (a *Auth) ReadKeysFile(keysFile string) error {
 	}
 
 	block1, _ := pem.Decode([]byte(tokenVerificationKeys.Key1.PublicKey))
-	pubKey1, err := x509.ParsePKIXPublicKey(block1.Bytes)
+	pubKey1, err := x509.ParsePKCS1PublicKey(block1.Bytes)
 	if err != nil {
 		return err
 	}
 
 	block2, _ := pem.Decode([]byte(tokenVerificationKeys.Key2.PublicKey))
-	pubKey2, err := x509.ParsePKIXPublicKey(block2.Bytes)
+	pubKey2, err := x509.ParsePKCS1PublicKey(block2.Bytes)
 	if err != nil {
 		return err
 	}
 
 	if tokenVerificationKeys.Key1.CreatedAt.After(tokenVerificationKeys.Key2.CreatedAt) {
-		a.primaryPublicKey = pubKey1.(*rsa.PublicKey)
-		a.secondaryPublicKey = pubKey2.(*rsa.PublicKey)
+		a.primaryPublicKey = pubKey1
+		a.secondaryPublicKey = pubKey2
 	} else {
-		a.primaryPublicKey = pubKey2.(*rsa.PublicKey)
-		a.secondaryPublicKey = pubKey1.(*rsa.PublicKey)
+		a.primaryPublicKey = pubKey2
+		a.secondaryPublicKey = pubKey1
 	}
 
-	return nil
-}
-
-func (a *Auth) LoadKey(keyFile string) error {
-	publicKeyFile, err := os.ReadFile(keyFile)
-	if err != nil {
-		return err
-	}
-	block, _ := pem.Decode(publicKeyFile)
-	if block == nil {
-		return fmt.Errorf("failed to parse PEM block containing the public key")
-	}
-
-	if block.Type != "PUBLIC KEY" {
-		return fmt.Errorf("public key is of the wrong type, Pem Type :%s", block.Type)
-	}
-	key, err := x509.ParsePKIXPublicKey(block.Bytes)
-	if err != nil {
-		return err
-	}
-	a.publicKey = key.(*rsa.PublicKey)
-	log.Info("Public key " + keyFile + " loaded")
 	return nil
 }
 

@@ -9,11 +9,14 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
+	"net/http"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"gopkg.in/yaml.v2"
 )
 
 var testKey *rsa.PrivateKey
@@ -55,25 +58,13 @@ func createToken(key *rsa.PrivateKey, method jwt.SigningMethod, claims *CustomCl
 	return signedToken, nil
 }
 
-func writePublicKeyFile(public *rsa.PublicKey, filename string) error {
-	raw, err := x509.MarshalPKIXPublicKey(public)
+func writePublicKeysFile(keys *tokenVerificationKeys, filename string) error {
+	content, err := yaml.Marshal(*keys)
 	if err != nil {
 		return err
 	}
-	block := &pem.Block{
-		Type:  "PUBLIC KEY",
-		Bytes: raw,
-	}
-	file, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-	err = pem.Encode(file, block)
-	if err != nil {
-		return err
-	}
-	err = pem.Encode(os.Stdout, block)
-	if err != nil {
+
+	if err := os.WriteFile(filename, content, 0644); err != nil {
 		return err
 	}
 
@@ -86,26 +77,34 @@ func TestMain(t *testing.T) {
 
 	testKey = createKey()
 	public := &testKey.PublicKey
-	keyFilename := "test_key_pub.pem"
 
-	if err := writePublicKeyFile(public, keyFilename); err != nil {
-		t.Fatalf("Could not write test key to file: %s", err)
+	tokenVerificationKeysInstance := tokenVerificationKeys{
+		Key1: tokenVerificationKey{
+			PublicKey: string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: x509.MarshalPKCS1PublicKey(wrongPublic)})[:]),
+			CreatedAt: time.Now(),
+		},
+		Key2: tokenVerificationKey{
+			PublicKey: string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: x509.MarshalPKCS1PublicKey(public)})[:]),
+			CreatedAt: time.Now().Add(-time.Hour),
+		},
+	}
+
+	keyFilename := "test_keys.yaml"
+
+	if err := writePublicKeysFile(&tokenVerificationKeysInstance, keyFilename); err != nil {
+		t.Fatalf("Could not write test keys to file: %s", err)
 	}
 
 	defer func() {
-		// Remove generated key file
 		if err := os.Remove(keyFilename); err != nil {
 			t.Fatalf("Could not remove key file: %s", err)
 		}
 	}()
 
 	global_auth_obj = NewAuth()
-	if err := global_auth_obj.LoadKey(keyFilename); err != nil {
+	if err := global_auth_obj.ReadKeysFile(keyFilename); err != nil {
 		t.Fatalf("Loading key failed: %s", err.Error())
 	}
-	// TEST NEEDS TO BE UPDATED TODO
-	global_auth_obj.primaryPublicKey = wrongPublic
-	global_auth_obj.secondaryPublicKey = public
 }
 
 func TestVerifyValidToken(t *testing.T) {
@@ -167,7 +166,7 @@ func TestVerifyWrongSigningToken(t *testing.T) {
 
 func TestVerifyInvalidClusterIdToken(t *testing.T) {
 	individualClaims := map[string]string{"empty": "1234567"}
-	claims := createCustomClaims(individualClaims, time.Hour*24*7, issuer, "TestSubject", "0000", []string{"wrong-audience"})
+	claims := createCustomClaims(individualClaims, time.Hour*24*7, issuer, "TestSubject", "0000", audience)
 	token, err := createToken(testKey, jwt.SigningMethodRS256, claims)
 	if err != nil {
 		t.Fatalf("Could not create test jwt: %s", err)
@@ -176,4 +175,37 @@ func TestVerifyInvalidClusterIdToken(t *testing.T) {
 	if _, err := global_auth_obj.VerifyToken(token); err == nil {
 		t.Fatalf("Invalid token w/o cluster id was accepted: %s", err.Error())
 	}
+}
+
+func TestExtractToken(t *testing.T) {
+	individualClaims := map[string]string{"cluster-identity": "1234567"}
+	claims := createCustomClaims(individualClaims, time.Hour*24*7, issuer, "TestSubject", "0000", audience)
+	token, err := createToken(testKey, jwt.SigningMethodRS256, claims)
+	if err != nil {
+		t.Fatalf("Could not create test jwt: %s", err)
+	}
+
+	r := &http.Request{Header: make(http.Header)}
+	r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+
+	resToken, err := global_auth_obj.ExtractToken(r)
+	if err != nil {
+		t.Fatalf("Could not extract token: %s", err)
+	}
+	if resToken == nil {
+		t.Fatalf("Token was not extracted")
+	}
+
+	r.Header.Set("Authorization", fmt.Sprintf("BearerBroken %s", token))
+	_, err = global_auth_obj.ExtractToken(r)
+	if err == nil {
+		t.Fatalf("Extracted broken token")
+	}
+
+	r.Header.Del("Authorization")
+	_, err = global_auth_obj.ExtractToken(r)
+	if err == nil {
+		t.Fatalf("Extracted headerless request")
+	}
+
 }
