@@ -115,6 +115,26 @@ func TestMain(t *testing.T) {
 	}
 }
 
+func TestVerifyInValidKeys(t *testing.T) {
+	individualClaims := map[string]string{"cluster-identity": "1234567"}
+	claims := createCustomClaims(individualClaims, time.Hour*24*7, issuer, "TestSubject", "0000", audience)
+	token, err := createToken(testKey, jwt.SigningMethodRS256, claims)
+	if err != nil {
+		t.Fatalf("Could not create test jwt: %s", err)
+	}
+
+	anotherWrongKey := createKey()
+	anotherWrongPublic := &anotherWrongKey.PublicKey
+	global_auth_obj.secondaryPublicKey = anotherWrongPublic
+
+	if _, err := global_auth_obj.VerifyToken(token); err == nil {
+		t.Fatalf("Token was verified with wrong keys")
+	}
+
+	// Restore key setup for other tests
+	global_auth_obj.secondaryPublicKey = &testKey.PublicKey
+}
+
 func TestVerifyValidToken(t *testing.T) {
 	individualClaims := map[string]string{"cluster-identity": "1234567"}
 	claims := createCustomClaims(individualClaims, time.Hour*24*7, issuer, "TestSubject", "0000", audience)
