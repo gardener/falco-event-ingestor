@@ -72,23 +72,23 @@ func (a *Auth) ReadKeysFile(keysFile string) error {
 	}
 
 	block1, _ := pem.Decode([]byte(tokenVerificationKeys.Key1.PublicKey))
-	pubKey1, err := x509.ParsePKCS1PublicKey(block1.Bytes)
+	pubKey1, err := x509.ParsePKIXPublicKey(block1.Bytes)
 	if err != nil {
 		return err
 	}
 
 	block2, _ := pem.Decode([]byte(tokenVerificationKeys.Key2.PublicKey))
-	pubKey2, err := x509.ParsePKCS1PublicKey(block2.Bytes)
+	pubKey2, err := x509.ParsePKIXPublicKey(block2.Bytes)
 	if err != nil {
 		return err
 	}
 
 	if tokenVerificationKeys.Key1.CreatedAt.After(tokenVerificationKeys.Key2.CreatedAt) {
-		a.primaryPublicKey = pubKey1
-		a.secondaryPublicKey = pubKey2
+		a.primaryPublicKey = pubKey1.(*rsa.PublicKey)
+		a.secondaryPublicKey = pubKey2.(*rsa.PublicKey)
 	} else {
-		a.primaryPublicKey = pubKey2
-		a.secondaryPublicKey = pubKey1
+		a.primaryPublicKey = pubKey2.(*rsa.PublicKey)
+		a.secondaryPublicKey = pubKey1.(*rsa.PublicKey)
 	}
 
 	return nil

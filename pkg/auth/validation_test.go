@@ -74,17 +74,25 @@ func writePublicKeysFile(keys *tokenVerificationKeys, filename string) error {
 func TestMain(t *testing.T) {
 	wrongKey := createKey()
 	wrongPublic := &wrongKey.PublicKey
+	marshalledWrongPublic, err := x509.MarshalPKIXPublicKey(wrongPublic)
+	if err != nil {
+		t.Fatalf("Could not marshal wrong public key: %s", err)
+	}
 
 	testKey = createKey()
 	public := &testKey.PublicKey
+	marshalledPublic, err := x509.MarshalPKIXPublicKey(public)
+	if err != nil {
+		t.Fatalf("Could not marshal public key: %s", err)
+	}
 
 	tokenVerificationKeysInstance := tokenVerificationKeys{
 		Key1: tokenVerificationKey{
-			PublicKey: string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: x509.MarshalPKCS1PublicKey(wrongPublic)})[:]),
+			PublicKey: string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: marshalledWrongPublic})[:]),
 			CreatedAt: time.Now(),
 		},
 		Key2: tokenVerificationKey{
-			PublicKey: string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: x509.MarshalPKCS1PublicKey(public)})[:]),
+			PublicKey: string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: marshalledPublic})[:]),
 			CreatedAt: time.Now().Add(-time.Hour),
 		},
 	}
