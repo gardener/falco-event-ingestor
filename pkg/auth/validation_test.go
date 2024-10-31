@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 var testKey *rsa.PrivateKey
