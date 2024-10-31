@@ -21,7 +21,6 @@ import (
 )
 
 type Auth struct {
-	publicKey          *rsa.PublicKey
 	primaryPublicKey   *rsa.PublicKey
 	secondaryPublicKey *rsa.PublicKey
 }
@@ -92,28 +91,6 @@ func (a *Auth) ReadKeysFile(keysFile string) error {
 		a.secondaryPublicKey = pubKey1.(*rsa.PublicKey)
 	}
 
-	return nil
-}
-
-func (a *Auth) LoadKey(keyFile string) error {
-	publicKeyFile, err := os.ReadFile(keyFile)
-	if err != nil {
-		return err
-	}
-	block, _ := pem.Decode(publicKeyFile)
-	if block == nil {
-		return fmt.Errorf("failed to parse PEM block containing the public key")
-	}
-
-	if block.Type != "PUBLIC KEY" {
-		return fmt.Errorf("public key is of the wrong type, Pem Type :%s", block.Type)
-	}
-	key, err := x509.ParsePKIXPublicKey(block.Bytes)
-	if err != nil {
-		return err
-	}
-	a.publicKey = key.(*rsa.PublicKey)
-	log.Info("Public key " + keyFile + " loaded")
 	return nil
 }
 

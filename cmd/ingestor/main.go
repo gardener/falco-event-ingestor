@@ -26,7 +26,7 @@ func configureLogging() {
 	log.SetLevel(log.InfoLevel)
 }
 
-func initConfig(configFile string, verificationKey string, verificationKeys string, postgresPassword string) (*postgres.PostgresConfig, *auth.Auth) {
+func initConfig(configFile string, verificationKeys string, postgresPassword string) (*postgres.PostgresConfig, *auth.Auth) {
 	viper.SetConfigFile(configFile)
 	viper.SetConfigType("yaml")
 
@@ -37,19 +37,14 @@ func initConfig(configFile string, verificationKey string, verificationKeys stri
 
 	configureLogging()
 	validator := auth.NewAuth()
-	if err := validator.LoadKey(verificationKey); err != nil {
-		os.Stderr.WriteString("Cannot load token verification key: " + err.Error() + "\n")
-		os.Exit(1)
-	}
-
 	if err := validator.ReadKeysFile(verificationKeys); err != nil {
-		os.Stderr.WriteString("Cannot load token verification keys file: " + err.Error() + "\n")
+		log.Errorf("Cannot load token verification keys file: %v", err)
 		os.Exit(1)
 	}
 
 	postpresPassword, err := os.ReadFile(postgresPassword)
 	if err != nil {
-		os.Stderr.WriteString("Cannot read postgres password: " + err.Error() + "\n")
+		log.Errorf("Cannot read postgres password: %v", err)
 		os.Exit(1)
 	}
 	postgresConfig := postgres.NewPostgresConfig(
@@ -69,15 +64,8 @@ func main() {
 	tlsCertFile := flag.String("tls-certificate", "", "path to file containing tls certificate")
 	// TlS key file
 	tlsKeyFile := flag.String("tls-key", "", "path to file containing tls key")
-
-	// REMOVE WHEN KEY SWITCH IS DONE TODO
-	// Key to verify JWT tokens
-	verificationKey := flag.String("key-file", "", "path to file containing the public key to verify JWT tokens")
-	// REMOVE WHEN KEY SWITCH IS DONE TODO
-
-	// Key to verify JWT tokens
+	// Keys to verify JWT tokens
 	verificationKeys := flag.String("keys-file", "", "path to file containing the public keys to verify JWT tokens")
-
 	// Configuration file
 	configFile := flag.String("config-file", "", "path to the configuration file")
 	// Daily limit of events received by one cluster
@@ -85,7 +73,7 @@ func main() {
 
 	flag.Parse()
 
-	postgresConfig, validator := initConfig(*configFile, *verificationKey, *verificationKeys, *postgresPassword)
+	postgresConfig, validator := initConfig(*configFile, *verificationKeys, *postgresPassword)
 
 	server.NewServer(validator, postgresConfig, viper.GetInt("server.port"), *clusterDailyEventLimit, *tlsCertFile, *tlsKeyFile)
 }
