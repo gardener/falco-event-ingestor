@@ -1,8 +1,6 @@
 module github.com/gardener/falco-event-ingestor
 
-go 1.22.0
-
-toolchain go1.22.3
+go 1.23.3
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
