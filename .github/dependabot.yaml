@@ -1,0 +1,16 @@
+version: 2
+updates:
+- package-ecosystem: "gomod"
+  directory: "/"
+  schedule:
+    interval: "weekly"
+  labels:
+  - kind/enhancement
+- package-ecosystem: "docker"
+  directory: "/"
+  schedule:
+    interval: "weekly"
+  labels:
+  - kind/enhancement
+
+# see https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
