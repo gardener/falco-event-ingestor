@@ -190,13 +190,13 @@ func newHandlePush(v *auth.Auth, p *postgres.PostgresConfig, s *Server) func(htt
 
 		eventStruct, err := requestToEvent(r)
 		if err != nil {
-			log.Errorf("Error unmarshalling event: " + err.Error())
+			log.Errorf("Error unmarshalling event: %s", err)
 			http.Error(w, "cannot parse http body", http.StatusBadRequest)
 			return
 		}
 
 		if err := verifyEventTokenMatch(eventStruct, tokenValues); err != nil {
-			log.Errorf("Token and event do not match: " + err.Error())
+			log.Errorf("Token and event do not match: %s", err)
 			log.Debug(eventStruct)
 			http.Error(w, "token and event are mismatched", http.StatusBadRequest)
 			return
