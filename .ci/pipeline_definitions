@@ -26,7 +26,7 @@ falco-event-ingestor:
                 availability_requirement: 'low'
     steps:
       verify:
-        image: golang:1.22.3
+        image: golang:1.23.3
   jobs:
     head-update:
       traits:
