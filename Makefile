@@ -83,7 +83,18 @@ install:
 #####################################################################
 
 .PHONY: verify
-verify: check format test
+verify: check format test sast
+
+.PHONY: verify-extended
+verify-extended: check format test sast-report
+
+.PHONY: sast
+sast: $(GOSEC) ## Run gosec against code
+	@./hack/sast.sh
+
+.PHONY: sast-report
+sast-report: $(GOSEC) ## Run gosec against code and export report to SARIF.
+	@./hack/sast.sh --gosec-report true
 
 .PHONY: test
 test:

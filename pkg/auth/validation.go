@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -61,7 +62,7 @@ func (a *Auth) ExtractToken(r *http.Request) (*string, error) {
 }
 
 func (a *Auth) ReadKeysFile(keysFile string) error {
-	fileContents, err := os.ReadFile(keysFile)
+	fileContents, err := os.ReadFile(filepath.Clean(keysFile))
 	if err != nil {
 		return err
 	}
