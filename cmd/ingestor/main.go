@@ -31,7 +31,7 @@ func initConfig(configFile string, verificationKeys string, postgresPassword str
 	viper.SetConfigType("yaml")
 
 	if err := viper.ReadInConfig(); err != nil {
-		os.Stderr.WriteString(err.Error() + "\n")
+		log.Errorf("Cannot read configuration file: %v", err)
 		os.Exit(1)
 	}
 
