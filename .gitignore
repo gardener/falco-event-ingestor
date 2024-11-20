@@ -2,3 +2,6 @@
 bin/
 hack/tools/bin/
 vendor/
+
+# gosec
+gosec-report.sarif
