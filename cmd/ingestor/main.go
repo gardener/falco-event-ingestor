@@ -7,6 +7,7 @@ package main
 import (
 	"flag"
 	"os"
+	"path/filepath"
 
 	"github.com/gardener/falco-event-ingestor/pkg/auth"
 	postgres "github.com/gardener/falco-event-ingestor/pkg/postgres"
@@ -42,7 +43,7 @@ func initConfig(configFile string, verificationKeys string, postgresPassword str
 		os.Exit(1)
 	}
 
-	postpresPassword, err := os.ReadFile(postgresPassword)
+	postpresPassword, err := os.ReadFile(filepath.Clean(postgresPassword))
 	if err != nil {
 		log.Errorf("Cannot read postgres password: %v", err)
 		os.Exit(1)
