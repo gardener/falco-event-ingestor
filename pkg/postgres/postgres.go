@@ -122,22 +122,27 @@ func prepareInsert(db *sql.DB) (*sql.Stmt, error) {
 	return stmt, nil
 }
 
-func (pgconf *PostgresConfig) Insert(event *EventStruct) {
+func (pgconf *PostgresConfig) Insert(event *EventStruct) error {
 	clusterIdentity, err := parseClusterId(event)
 	if err != nil {
-		log.Errorf("Error inserting event into database: %s", err)
+		errStr := fmt.Sprintf("Error parsing cluster id: %s", err)
+		log.Error(errStr)
+		return errors.New(errStr)
 	}
 
 	outputJson, err := json.Marshal(event.OutputFields)
 	if err != nil {
-		log.Errorf("Failed to marshal")
+		errStr := fmt.Sprintf("Error marshalling output fields: %s", err)
+		log.Error(errStr)
+		return errors.New(errStr)
 	}
 	_, err2 := pgconf.stmt.Exec(clusterIdentity.landscape, clusterIdentity.project, clusterIdentity.cluster, clusterIdentity.uuid, event.Hostname, event.Time, event.Rule, event.Priority, event.Tags, event.Source, event.Output, outputJson)
 	if err2 != nil {
-		log.Errorf("Error inserting event into database: %s", err2)
-		return
+		errStr := fmt.Sprintf("Error inserting event into database: %s", err2)
+		log.Error(errStr)
+		return errors.New(errStr)
 	}
-	log.Info("Database insert request finished without error")
+	return nil
 }
 
 func (pgconf *PostgresConfig) CheckHealth() error {
