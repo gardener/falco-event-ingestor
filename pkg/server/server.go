@@ -217,15 +217,15 @@ func newHandlePush(v *auth.Auth, p *postgres.PostgresConfig, s *Server) func(htt
 		}
 
 		if err := p.Insert(eventStruct); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
 			falcometrics.RequestsFailureHist.Observe(time.Since(startTime).Seconds())
 			falcometrics.ClusterRequestsFailure.With(prometheus.Labels{"cluster": tokenValues.ClusterId}).Add(1)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		w.WriteHeader(http.StatusOK)
 		falcometrics.RequestsSuccessHist.Observe(time.Since(startTime).Seconds())
 		falcometrics.ClusterRequestsSuccess.With(prometheus.Labels{"cluster": tokenValues.ClusterId}).Add(1)
+		w.WriteHeader(http.StatusOK)
 	}
 }
 
