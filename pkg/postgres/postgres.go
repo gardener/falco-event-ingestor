@@ -6,7 +6,6 @@ package postgres
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,13 +13,11 @@ import (
 	"strconv"
 	"time"
 
-	_ "github.com/lib/pq"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	log "github.com/sirupsen/logrus"
 )
-
-const INSERT_STATEMENT = "INSERT INTO falco_events(landscape, project, cluster, uuid, hostname, time, rule, priority, tags, source, message, output_fields) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)"
-
-var REQUIRED_FIELDS = []string{"landscape", "project", "cluster", "uuid", "hostname", "time", "rule", "priority", "tags", "source"}
 
 type ClusterIdentity struct {
 	project   string
@@ -30,13 +27,13 @@ type ClusterIdentity struct {
 }
 
 type PostgresConfig struct {
-	user     string
-	password string
-	host     string
-	port     int
-	dbname   string
-	db       *sql.DB
-	stmt     *sql.Stmt
+	user       string
+	password   string
+	host       string
+	port       int
+	dbname     string
+	dbpool     *pgxpool.Pool
+	healthConn *pgxpool.Conn
 }
 
 type EventStruct struct {
@@ -53,36 +50,37 @@ type EventStruct struct {
 
 func NewPostgresConfig(user, password, host string, port int, dbname string) *PostgresConfig {
 	connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s", host, port, user, password, dbname)
-	log.Infof("Trying connection: host=%s port=%d user=%s password=%s dbname=%s", host, port, user, "******", dbname)
-
-	db, err := sql.Open("postgres", connStr)
+	config, err := pgxpool.ParseConfig(connStr)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Unable to parse database connection string: %v", err)
 	}
 
-	pingErr := db.Ping()
-	if pingErr != nil {
-		log.Fatal(pingErr)
-	}
-
-	db.SetConnMaxLifetime(0)
-	db.SetMaxIdleConns(3)
-	db.SetMaxOpenConns(10)
-	stmt, err := prepareInsert(db)
+	pool, err := pgxpool.NewWithConfig(context.Background(), config)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Unable to create connection pool: %v\n", err)
 	}
+	defer pool.Close()
 
 	log.Info("Connection to database succeded")
 
+	healthConn, err := pool.Acquire(context.Background())
+	if err != nil {
+		log.Fatalf("Unable to create dedicated healthz connection: %v\n", err)
+	}
+	defer healthConn.Release()
+
+	if pingErr := pool.Ping(context.Background()); pingErr != nil {
+		log.Fatalf("Unable to ping database: %v\n", pingErr)
+	}
+
 	return &PostgresConfig{
-		user:     user,
-		password: password,
-		host:     host,
-		port:     port,
-		dbname:   dbname,
-		db:       db,
-		stmt:     stmt,
+		user:       user,
+		password:   password,
+		host:       host,
+		port:       port,
+		dbname:     dbname,
+		dbpool:     pool,
+		healthConn: healthConn,
 	}
 }
 
@@ -90,11 +88,12 @@ func (c *PostgresConfig) SetPassword(password string) {
 	c.password = password
 }
 
-func parseClusterId(event *EventStruct) (*ClusterIdentity, error) {
+func parseClusterId(event EventStruct) (*ClusterIdentity, error) {
 	clusterId, err := json.Marshal(event.OutputFields["cluster_id"])
 	if err != nil {
 		return nil, err
 	}
+
 	clusterIdString, err := strconv.Unquote(string(clusterId))
 	if err != nil {
 		return nil, err
@@ -106,6 +105,7 @@ func parseClusterId(event *EventStruct) (*ClusterIdentity, error) {
 	if match == nil {
 		return nil, errors.New("cluster id does not match pattern")
 	}
+
 	return &ClusterIdentity{
 		project:   match[1],
 		cluster:   match[2],
@@ -114,53 +114,82 @@ func parseClusterId(event *EventStruct) (*ClusterIdentity, error) {
 	}, nil
 }
 
-func prepareInsert(db *sql.DB) (*sql.Stmt, error) {
-	stmt, err := db.Prepare(INSERT_STATEMENT)
-	if err != nil {
-		return nil, fmt.Errorf("could not prepare sql statement: %s due to error: %s", INSERT_STATEMENT, err.Error())
-	}
-	return stmt, nil
-}
+func (pgconf *PostgresConfig) Insert(events []EventStruct) error {
+	rows := make([][]interface{}, len(events))
+	for i, event := range events {
+		clusterIdentity, err := parseClusterId(event)
+		if err != nil {
+			errStr := fmt.Sprintf("Error parsing cluster id: %s", err)
+			log.Error(errStr)
+			continue
+		}
 
-func (pgconf *PostgresConfig) Insert(event *EventStruct) error {
-	clusterIdentity, err := parseClusterId(event)
-	if err != nil {
-		errStr := fmt.Sprintf("Error parsing cluster id: %s", err)
-		log.Error(errStr)
-		return errors.New(errStr)
+		outputJson, err := json.Marshal(event.OutputFields)
+		if err != nil {
+			errStr := fmt.Sprintf("Error marshalling output fields: %s", err)
+			log.Error(errStr)
+			continue
+		}
+
+		rows[i] = []interface{}{
+			clusterIdentity.landscape,
+			clusterIdentity.project,
+			clusterIdentity.cluster,
+			clusterIdentity.uuid,
+			event.Hostname,
+			event.Time,
+			event.Rule,
+			event.Priority,
+			event.Tags,
+			event.Source,
+			event.Output,
+			outputJson,
+		}
 	}
 
-	outputJson, err := json.Marshal(event.OutputFields)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	_, err := pgconf.dbpool.CopyFrom(
+		ctx,
+		pgx.Identifier{"falco_events"},
+		[]string{
+			"landscape",
+			"project",
+			"cluster",
+			"uuid",
+			"hostname",
+			"time",
+			"rule",
+			"priority",
+			"tags",
+			"source",
+			"message",
+			"output_fields",
+		},
+		pgx.CopyFromRows(rows),
+	)
+
 	if err != nil {
-		errStr := fmt.Sprintf("Error marshalling output fields: %s", err)
-		log.Error(errStr)
-		return errors.New(errStr)
+		return fmt.Errorf("failed to insert events: %w", err)
 	}
-	_, err2 := pgconf.stmt.Exec(clusterIdentity.landscape, clusterIdentity.project, clusterIdentity.cluster, clusterIdentity.uuid, event.Hostname, event.Time, event.Rule, event.Priority, event.Tags, event.Source, event.Output, outputJson)
-	if err2 != nil {
-		errStr := fmt.Sprintf("Error inserting event into database: %s", err2)
-		log.Error(errStr)
-		return errors.New(errStr)
-	}
+
+	log.Infof("Inserted %d events", len(events))
 	return nil
 }
 
 func (pgconf *PostgresConfig) CheckHealth() error {
-	db := pgconf.db
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := db.PingContext(ctx); err != nil {
-		return fmt.Errorf("failed to ping postgres: %w", err)
+	if err := pgconf.healthConn.Ping(ctx); err != nil {
+		return fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	rows, err := db.QueryContext(ctx, `SELECT version()`)
+	rows, err := pgconf.healthConn.Query(ctx, `SELECT version()`)
+	defer rows.Close()
 	if err != nil {
 		return fmt.Errorf("failed to run test query: %w", err)
-	}
-
-	if err = rows.Close(); err != nil {
-		return fmt.Errorf("failed to close selected rows: %w", err)
 	}
 
 	return nil
