@@ -27,13 +27,12 @@ type ClusterIdentity struct {
 }
 
 type PostgresConfig struct {
-	user       string
-	password   string
-	host       string
-	port       int
-	dbname     string
-	dbpool     *pgxpool.Pool
-	healthConn *pgxpool.Conn
+	user     string
+	password string
+	host     string
+	port     int
+	dbname   string
+	dbpool   *pgxpool.Pool
 }
 
 type EventStruct struct {
@@ -57,30 +56,22 @@ func NewPostgresConfig(user, password, host string, port int, dbname string) *Po
 
 	pool, err := pgxpool.NewWithConfig(context.Background(), config)
 	if err != nil {
-		log.Fatalf("Unable to create connection pool: %v\n", err)
+		log.Fatalf("Unable to create connection pool: %v", err)
 	}
-	defer pool.Close()
 
 	log.Info("Connection to database succeded")
 
-	healthConn, err := pool.Acquire(context.Background())
-	if err != nil {
-		log.Fatalf("Unable to create dedicated healthz connection: %v\n", err)
-	}
-	defer healthConn.Release()
-
 	if pingErr := pool.Ping(context.Background()); pingErr != nil {
-		log.Fatalf("Unable to ping database: %v\n", pingErr)
+		log.Fatalf("Unable to ping database: %v", pingErr)
 	}
 
 	return &PostgresConfig{
-		user:       user,
-		password:   password,
-		host:       host,
-		port:       port,
-		dbname:     dbname,
-		dbpool:     pool,
-		healthConn: healthConn,
+		user:     user,
+		password: password,
+		host:     host,
+		port:     port,
+		dbname:   dbname,
+		dbpool:   pool,
 	}
 }
 
@@ -182,11 +173,11 @@ func (pgconf *PostgresConfig) CheckHealth() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := pgconf.healthConn.Ping(ctx); err != nil {
+	if err := pgconf.dbpool.Ping(ctx); err != nil {
 		return fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	rows, err := pgconf.healthConn.Query(ctx, `SELECT version()`)
+	rows, err := pgconf.dbpool.Query(ctx, `SELECT version()`)
 	defer rows.Close()
 	if err != nil {
 		return fmt.Errorf("failed to run test query: %w", err)

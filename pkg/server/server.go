@@ -40,16 +40,32 @@ type clusterLimiter struct {
 	lastSeen time.Time
 }
 
-func NewServer(v *auth.Auth, p *postgres.PostgresConfig, port int, clusterDailyEventLimit int, tlsCertFile string, tlsKeyFile string) *Server {
+func NewServer(
+	v *auth.Auth,
+	p *postgres.PostgresConfig,
+	port int,
+	clusterDailyEventLimit int,
+	tlsCertFile string,
+	tlsKeyFile string,
+) *Server {
 	veryHighLimit := 100000000000
 	generalLimiter := rate.NewLimiter(rate.Limit(veryHighLimit), veryHighLimit) // Shared limiter for all endpoints
 
 	clusterLim := rate.Every(24 * time.Hour / time.Duration(clusterDailyEventLimit)) // Casting required
-	clusterBurst := int(float64(clusterDailyEventLimit) * 0.3)                       // We allow bursts of 30% of the daily limit
+	clusterBurst := clusterDailyEventLimit / 3                                       // We allow bursts of ~33% of the daily limit
 
-	channel := make(chan postgres.EventStruct, 1000)
+	channel := make(chan postgres.EventStruct, 5000)
 
-	server := Server{v, p, map[string]*clusterLimiter{}, sync.Mutex{}, clusterLim, clusterBurst, generalLimiter, channel}
+	server := Server{
+		v,
+		p,
+		map[string]*clusterLimiter{},
+		sync.Mutex{},
+		clusterLim,
+		clusterBurst,
+		generalLimiter,
+		channel,
+	}
 
 	healthPort := 8000
 	healthMux := http.NewServeMux()
