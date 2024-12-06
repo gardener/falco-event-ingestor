@@ -17,6 +17,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	log "github.com/sirupsen/logrus"
+
+	mymetrics "github.com/gardener/falco-event-ingestor/pkg/metrics"
 )
 
 type ClusterIdentity struct {
@@ -165,6 +167,7 @@ func (pgconf *PostgresConfig) Insert(events []EventStruct) error {
 		return fmt.Errorf("failed to insert events: %w", err)
 	}
 
+	mymetrics.InsertSuccess.Add(float64(len(events)))
 	log.Infof("Inserted %d events", len(events))
 	return nil
 }

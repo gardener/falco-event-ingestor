@@ -66,4 +66,12 @@ var (
 		},
 		[]string{"cluster"},
 	)
+
+	InsertSuccess = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "insert_sucess_total",
+			Help:      "Total number of successful db inserts.",
+		},
+	)
 )
