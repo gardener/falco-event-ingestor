@@ -181,10 +181,10 @@ func (pgconf *PostgresConfig) CheckHealth() error {
 	}
 
 	rows, err := pgconf.dbpool.Query(ctx, `SELECT version()`)
-	defer rows.Close()
 	if err != nil {
 		return fmt.Errorf("failed to run test query: %w", err)
 	}
+	defer rows.Close()
 
 	return nil
 }

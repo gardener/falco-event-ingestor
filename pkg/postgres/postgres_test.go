@@ -28,7 +28,7 @@ func TestHealthGood(t *testing.T) {
 	}
 	defer conn.Release()
 
-	pgconf := &PostgresConfig{healthConn: conn}
+	pgconf := &PostgresConfig{}
 	if err := pgconf.CheckHealth(); err != nil {
 		t.Errorf("Health check failed: %s", err.Error())
 	}
@@ -51,7 +51,7 @@ func TestHealthPingFail(t *testing.T) {
 	}
 	defer conn.Release()
 
-	pgconf := &PostgresConfig{healthConn: conn}
+	pgconf := &PostgresConfig{}
 	if err := pgconf.CheckHealth(); err == nil {
 		t.Errorf("Database was closed but able to be pinnged")
 	}
@@ -72,7 +72,7 @@ func TestHealthQueryFail(t *testing.T) {
 	}
 	defer conn.Release()
 
-	pgconf := &PostgresConfig{healthConn: conn}
+	pgconf := &PostgresConfig{}
 	if err := pgconf.CheckHealth(); err == nil {
 		t.Error("Health check succeded")
 	}
@@ -100,7 +100,7 @@ func TestHealthQueryRowsClosed(t *testing.T) {
 	}
 	defer conn.Release()
 
-	pgconf := &PostgresConfig{healthConn: conn}
+	pgconf := &PostgresConfig{}
 	if err := pgconf.CheckHealth(); err == nil {
 		t.Errorf("Rows in health check could be closed")
 	}
