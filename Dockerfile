@@ -8,7 +8,7 @@ RUN mkdir -p bin && \
     CGO_ENABLED=0 GO111MODULE=on go build -o "bin/falco-event-ingestor" cmd/ingestor/main.go
 
 #############      base                                     #############
-FROM gcr.io/distroless/static-debian11:nonroot as base
+FROM gcr.io/distroless/static-debian12:nonroot as base
 WORKDIR /
 
 #############     falco-event-ingestor              #############
