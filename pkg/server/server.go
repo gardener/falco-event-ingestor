@@ -204,7 +204,7 @@ func (s *Server) writeEventToChannel(event postgres.EventStruct) error {
 }
 
 func (s *Server) readEventsFromChannel() {
-	events := make([]postgres.EventStruct, cap(s.eventChannel))
+	events := make([]postgres.EventStruct, 1)
 	events[0] = <-s.eventChannel
 
 outer:
