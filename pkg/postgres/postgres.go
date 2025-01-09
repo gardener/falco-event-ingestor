@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/huandu/go-sqlbuilder"
-	_ "github.com/lib/pq"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
 
 	mymetrics "github.com/gardener/falco-event-ingestor/pkg/metrics"
@@ -117,36 +117,6 @@ func parseClusterId(event EventStruct) (*ClusterIdentity, error) {
 		uuid:      match[3],
 		landscape: match[4],
 	}, nil
-}
-
-func (pgconf *PostgresConfig) Insert(events []EventStruct) error {
-	rows := make([][]interface{}, len(events))
-	for i, event := range events {
-		clusterIdentity, err := parseClusterId(event)
-		if err != nil {
-			errStr := fmt.Sprintf("Error parsing cluster id: %s", err)
-			log.Error(errStr)
-			continue
-		}
-
-func (pgconf *PostgresConfig) DeleteRows() error {
-	log.Infof("Deleting rows older than %s", pgconf.retentionDuration)
-
-	sql, args := buildDeleteStatement(pgconf.retentionDuration)
-	res, err := pgconf.db.Exec(sql, args...)
-	if err != nil {
-		log.Errorf("Delete query failed: %v", err)
-		return err
-	}
-
-	rowsNum, err := res.RowsAffected()
-	if err != nil {
-		log.Errorf("Error getting number of rows affected: %v", err)
-		return err
-	}
-
-	log.Infof("Deleted %d rows", rowsNum)
-	return nil
 }
 
 func (pgconf *PostgresConfig) Insert(events []EventStruct) error {
