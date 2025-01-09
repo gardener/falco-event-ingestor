@@ -4,15 +4,11 @@ go 1.23.3
 
 require (
 	github.com/golang-jwt/jwt/v5 v5.2.1
-<<<<<<< HEAD
 	github.com/huandu/go-sqlbuilder v1.30.0
-	github.com/lib/pq v1.10.9
-	github.com/prometheus/client_golang v1.19.1
-=======
 	github.com/jackc/pgx/v5 v5.7.2
+	github.com/lib/pq v1.10.9
 	github.com/pashagolub/pgxmock/v4 v4.3.0
 	github.com/prometheus/client_golang v1.20.5
->>>>>>> origin
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.19.0
 	golang.org/x/time v0.9.0
@@ -25,14 +21,11 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
-<<<<<<< HEAD
 	github.com/huandu/xstrings v1.4.0 // indirect
-=======
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/klauspost/compress v1.17.9 // indirect
->>>>>>> origin
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
