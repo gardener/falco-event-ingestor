@@ -5,6 +5,7 @@
 package server
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -31,6 +32,7 @@ type Server struct {
 	clusterLimit   rate.Limit
 	clusterBurst   int
 	generalLimiter *rate.Limiter
+	eventChannel   chan postgres.EventStruct
 }
 
 type clusterLimiter struct {
@@ -38,14 +40,32 @@ type clusterLimiter struct {
 	lastSeen time.Time
 }
 
-func NewServer(v *auth.Auth, p *postgres.PostgresConfig, port int, clusterDailyEventLimit int, tlsCertFile string, tlsKeyFile string) *Server {
-	veryHighLimit := 10000
+func NewServer(
+	v *auth.Auth,
+	p *postgres.PostgresConfig,
+	port int,
+	clusterDailyEventLimit int,
+	tlsCertFile string,
+	tlsKeyFile string,
+) *Server {
+	veryHighLimit := 100000000000
 	generalLimiter := rate.NewLimiter(rate.Limit(veryHighLimit), veryHighLimit) // Shared limiter for all endpoints
 
 	clusterLim := rate.Every(24 * time.Hour / time.Duration(clusterDailyEventLimit)) // Casting required
-	clusterBurst := int(float64(clusterDailyEventLimit) * 0.3)                       // We allow bursts of 30% of the daily limit
+	clusterBurst := clusterDailyEventLimit / 3                                       // We allow bursts of ~33% of the daily limit
 
-	server := Server{v, p, map[string]*clusterLimiter{}, sync.Mutex{}, clusterLim, clusterBurst, generalLimiter}
+	channel := make(chan postgres.EventStruct, 5000)
+
+	server := Server{
+		v,
+		p,
+		map[string]*clusterLimiter{},
+		sync.Mutex{},
+		clusterLim,
+		clusterBurst,
+		generalLimiter,
+		channel,
+	}
 
 	healthPort := 8000
 	healthMux := http.NewServeMux()
@@ -56,35 +76,59 @@ func NewServer(v *auth.Auth, p *postgres.PostgresConfig, port int, clusterDailyE
 	metricsMux.Handle("/metrics", promhttp.Handler())
 
 	ingestorMux := http.NewServeMux()
-	ingestorMux.HandleFunc("/ingestor/api/v1/push", newHandlePush(v, p, &server))
+	ingestorMux.HandleFunc("/ingestor/api/v1/push", newHandlePush(v, &server))
 	tlsCfg := &tls.Config{
 		MinVersion: tls.VersionTLS12,
 	}
+
 	ingestorServer := &http.Server{
-		Addr:      ":" + strconv.Itoa(port),
-		Handler:   ingestorMux,
-		TLSConfig: tlsCfg,
+		Addr:        ":" + strconv.Itoa(port),
+		Handler:     ingestorMux,
+		TLSConfig:   tlsCfg,
+		ReadTimeout: 15 * time.Second,
+	}
+
+	healthServer := &http.Server{
+		Addr:        ":" + strconv.Itoa(healthPort),
+		Handler:     healthMux,
+		ReadTimeout: 15 * time.Second,
+	}
+
+	metricsServer := &http.Server{
+		Addr:        ":" + strconv.Itoa(metricsPort),
+		Handler:     metricsMux,
+		ReadTimeout: 15 * time.Second,
 	}
 
 	wg := sync.WaitGroup{}
-	wg.Add(3)
+	wg.Add(4)
 
+	// WaitGroup number 1
+	go func() {
+		defer wg.Done()
+		log.Info("Starting event reader")
+		server.readEventsFromChannel()
+	}()
+
+	// WaitGroup number 2
 	go func() {
 		defer wg.Done()
 		log.Info("Starting metrics server at port " + strconv.Itoa(metricsPort))
-		if err := http.ListenAndServe(":"+strconv.Itoa(metricsPort), metricsMux); err != nil {
+		if err := metricsServer.ListenAndServe(); err != nil {
 			log.Fatal(err)
 		}
 	}()
 
+	// WaitGroup number 3
 	go func() {
 		defer wg.Done()
 		log.Info("Starting health server at port " + strconv.Itoa(healthPort))
-		if err := http.ListenAndServe(":"+strconv.Itoa(healthPort), healthMux); err != nil {
+		if err := healthServer.ListenAndServe(); err != nil {
 			log.Fatal(err)
 		}
 	}()
 
+	// WaitGroup number 4
 	if tlsCertFile == "" || tlsKeyFile == "" {
 		go func() {
 			defer wg.Done()
@@ -102,6 +146,7 @@ func NewServer(v *auth.Auth, p *postgres.PostgresConfig, port int, clusterDailyE
 			}
 		}()
 	}
+
 	go server.cleanLimits()
 
 	wg.Wait()
@@ -137,6 +182,52 @@ func (s *Server) cleanLimits() {
 	}
 }
 
+func (s *Server) writeEventToChannel(event postgres.EventStruct) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	done := make(chan bool)
+	go func(ctx context.Context) {
+		select {
+		case s.eventChannel <- event:
+			done <- true
+		case <-ctx.Done():
+			done <- false
+		}
+	}(ctx)
+
+	sucess := <-done
+	if !sucess {
+		return errors.New("could not write event to channel")
+	}
+	return nil
+}
+
+func (s *Server) readEventsFromChannel() {
+	for {
+		s.insertEvents()
+	}
+}
+
+func (s *Server) insertEvents() {
+	events := make([]postgres.EventStruct, 1)
+	events[0] = <-s.eventChannel
+
+outer:
+	for {
+		select {
+		case event := <-s.eventChannel:
+			events = append(events, event)
+		default:
+			break outer
+		}
+	}
+
+	if err := s.postgres.Insert(events); err != nil {
+		log.Errorf("Error inserting %d event(s) into database: %v", len(events), err)
+	}
+}
+
 func newShootLimiter(lim rate.Limit, burst int) *clusterLimiter {
 	return &clusterLimiter{
 		limit: rate.NewLimiter(lim, burst),
@@ -157,8 +248,9 @@ func newHandleHealth(p *postgres.PostgresConfig) func(http.ResponseWriter, *http
 	}
 }
 
-func newHandlePush(v *auth.Auth, p *postgres.PostgresConfig, s *Server) func(http.ResponseWriter, *http.Request) {
+func newHandlePush(v *auth.Auth, s *Server) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		startTime := time.Now()
 		if !s.generalLimiter.Allow() {
 			falcometrics.Limit.Set(1)
 			log.Error("Too many requests: limiting all incoming requests")
@@ -189,23 +281,27 @@ func newHandlePush(v *auth.Auth, p *postgres.PostgresConfig, s *Server) func(htt
 
 		eventStruct, err := requestToEvent(r)
 		if err != nil {
-			log.Errorf("Error unmarshalling event: " + err.Error())
+			log.Errorf("Error unmarshalling event: %s", err)
 			http.Error(w, "cannot parse http body", http.StatusBadRequest)
 			return
 		}
 
 		if err := verifyEventTokenMatch(eventStruct, tokenValues); err != nil {
-			log.Errorf("Token and event do not match: " + err.Error())
+			log.Errorf("Token and event do not match: %s", err)
 			log.Debug(eventStruct)
 			http.Error(w, "token and event are mismatched", http.StatusBadRequest)
 			return
 		}
 
-		falcometrics.Requests.Add(1)
-		falcometrics.ClusterRequests.With(prometheus.Labels{"cluster": tokenValues.ClusterId}).Add(1)
+		if err := s.writeEventToChannel(*eventStruct); err != nil {
+			falcometrics.RequestsFailureHist.Observe(time.Since(startTime).Seconds())
+			falcometrics.ClusterRequestsFailure.With(prometheus.Labels{"cluster": tokenValues.ClusterId}).Add(1)
+			w.WriteHeader(http.StatusInternalServerError)
+		}
 
-		p.Insert(eventStruct)
-		w.WriteHeader(http.StatusCreated)
+		falcometrics.RequestsSuccessHist.Observe(time.Since(startTime).Seconds())
+		falcometrics.ClusterRequestsSuccess.With(prometheus.Labels{"cluster": tokenValues.ClusterId}).Add(1)
+		w.WriteHeader(http.StatusOK)
 	}
 }
 

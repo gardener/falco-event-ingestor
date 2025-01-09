@@ -1,5 +1,12 @@
 falco-event-ingestor:
   base_definition:
+    repo:
+      source_labels:
+      - name: cloud.gardener.cnudie/dso/scanning-hints/source_analysis/v1
+        value:
+          policy: skip
+          comment: |
+            We use gosec for sast scanning, see attached log.
     traits:
       component_descriptor:
         ocm_repository: europe-docker.pkg.dev/gardener-project/snapshots
@@ -26,7 +33,7 @@ falco-event-ingestor:
                 availability_requirement: 'low'
     steps:
       verify:
-        image: golang:1.22.3
+        image: golang:1.23.4
   jobs:
     head-update:
       traits:
@@ -43,6 +50,16 @@ falco-event-ingestor:
           preprocess: 'finalize'
         release:
           nextversion: 'bump_minor'
+          assets:
+          - type: build-step-log
+            step_name: verify
+            purposes:
+            - lint
+            - sast
+            - gosec
+            comment: |
+              We use gosec (linter) for SAST scans, see: https://github.com/securego/gosec.
+              Enabled by https://github.com/gardener/falco-event-ingestor/pull/49
         component_descriptor:
           ocm_repository: europe-docker.pkg.dev/gardener-project/releases
         publish:

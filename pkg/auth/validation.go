@@ -12,14 +12,28 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	log "github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v3"
 )
 
 type Auth struct {
-	publicKey *rsa.PublicKey
+	primaryPublicKey   *rsa.PublicKey
+	secondaryPublicKey *rsa.PublicKey
+}
+
+type tokenVerificationKeys struct {
+	Key1 tokenVerificationKey `yaml:"key_1"`
+	Key2 tokenVerificationKey `yaml:"key_2"`
+}
+
+type tokenVerificationKey struct {
+	PublicKey string    `yaml:"publicKey"`
+	CreatedAt time.Time `yaml:"created"`
 }
 
 type CustomClaims struct {
@@ -47,51 +61,78 @@ func (a *Auth) ExtractToken(r *http.Request) (*string, error) {
 	return &splitToken[1], nil
 }
 
-func (a *Auth) LoadKey(keyFile string) error {
-	publicKeyFile, err := os.ReadFile(keyFile)
+func (a *Auth) ReadKeysFile(keysFile string) error {
+	fileContents, err := os.ReadFile(filepath.Clean(keysFile))
 	if err != nil {
 		return err
-	}
-	block, _ := pem.Decode(publicKeyFile)
-	if block == nil {
-		return fmt.Errorf("failed to parse PEM block containing the public key")
 	}
 
-	if block.Type != "PUBLIC KEY" {
-		return fmt.Errorf("public key is of the wrong type, Pem Type :%s", block.Type)
+	var tokenVerificationKeys tokenVerificationKeys
+	if err := yaml.Unmarshal(fileContents, &tokenVerificationKeys); err != nil {
+		return err
 	}
-	key, err := x509.ParsePKIXPublicKey(block.Bytes)
+
+	block1, _ := pem.Decode([]byte(tokenVerificationKeys.Key1.PublicKey))
+	pubKey1, err := x509.ParsePKIXPublicKey(block1.Bytes)
 	if err != nil {
 		return err
 	}
-	a.publicKey = key.(*rsa.PublicKey)
-	log.Info("Public key " + keyFile + " loaded")
+
+	block2, _ := pem.Decode([]byte(tokenVerificationKeys.Key2.PublicKey))
+	pubKey2, err := x509.ParsePKIXPublicKey(block2.Bytes)
+	if err != nil {
+		return err
+	}
+
+	if tokenVerificationKeys.Key1.CreatedAt.After(tokenVerificationKeys.Key2.CreatedAt) {
+		a.primaryPublicKey = pubKey1.(*rsa.PublicKey)
+		a.secondaryPublicKey = pubKey2.(*rsa.PublicKey)
+	} else {
+		a.primaryPublicKey = pubKey2.(*rsa.PublicKey)
+		a.secondaryPublicKey = pubKey1.(*rsa.PublicKey)
+	}
+
 	return nil
 }
 
 func (a *Auth) VerifyToken(tokenString string) (*TokenValues, error) {
-	claims := &CustomClaims{}
-	token, err := jwt.ParseWithClaims(tokenString, claims,
-		func(token *jwt.Token) (interface{}, error) {
-			return a.publicKey, nil
-		},
+	wantedClaims := []jwt.ParserOption{
 		jwt.WithAudience("falco-db"),
 		jwt.WithIssuer("urn:gardener:gardener-falco-extension"),
 		jwt.WithExpirationRequired(),
-		jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Name}),
-	)
+	}
+
+	parser := jwt.NewParser(wantedClaims...)
+	parts := strings.Split(tokenString, ".")
+	signedString := strings.ReplaceAll(strings.Join(parts[0:2], "."), "\n", "")
+
+	signature, err := parser.DecodeSegment(parts[2])
 	if err != nil {
+		return nil, fmt.Errorf("failed to decode signature: %w", err)
+	}
+
+	if err := jwt.SigningMethodRS256.Verify(signedString, signature, a.primaryPublicKey); err != nil {
+		log.Infof("Token verification failed with primary key %s", err)
+		if err = jwt.SigningMethodRS256.Verify(signedString, signature, a.secondaryPublicKey); err != nil {
+			log.Errorf("Token verification failed with secondary key %s", err)
+			return nil, err
+		}
+	}
+
+	claims := &CustomClaims{}
+	if _, _, err := parser.ParseUnverified(tokenString, claims); err != nil {
 		log.Errorf("Token parsing failed with %s", err)
 		return nil, err
 	}
 
-	if !token.Valid {
-		return nil, fmt.Errorf("invalid token")
+	claimsValidator := jwt.NewValidator(wantedClaims...)
+	if err := claimsValidator.Validate(claims); err != nil {
+		return nil, fmt.Errorf("invalid claims: %w", err)
 	}
 
 	clusterId, ok := claims.Custom["cluster-identity"]
 	if !ok {
-		return nil, errors.New("token has no cluster claim")
+		return nil, errors.New("token has no cluster identity claim")
 	}
 
 	return &TokenValues{

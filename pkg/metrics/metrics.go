@@ -14,11 +14,21 @@ const (
 )
 
 var (
-	Requests = promauto.NewCounter(
-		prometheus.CounterOpts{
+	RequestsSuccessHist = promauto.NewHistogram(
+		prometheus.HistogramOpts{
 			Namespace: namespace,
-			Name:      "requests_total",
+			Name:      "requests_success_total",
 			Help:      "Total number of successful insert requests.",
+			Buckets:   prometheus.DefBuckets,
+		},
+	)
+
+	RequestsFailureHist = promauto.NewHistogram(
+		prometheus.HistogramOpts{
+			Namespace: namespace,
+			Name:      "requests_failure_total",
+			Help:      "Total number of failed insert requests.",
+			Buckets:   prometheus.DefBuckets,
 		},
 	)
 
@@ -30,11 +40,20 @@ var (
 		},
 	)
 
-	ClusterRequests = promauto.NewCounterVec(
+	ClusterRequestsSuccess = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: namespace,
-			Name:      "requests_cluster_total",
+			Name:      "requests_cluster_sucess_total",
 			Help:      "Total number of successful insert requests.",
+		},
+		[]string{"cluster"},
+	)
+
+	ClusterRequestsFailure = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "requests_cluster_failed_total",
+			Help:      "Total number of failed insert requests.",
 		},
 		[]string{"cluster"},
 	)
@@ -46,5 +65,13 @@ var (
 			Help:      "Represents whether cluster is rate limited.",
 		},
 		[]string{"cluster"},
+	)
+
+	InsertSuccess = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "insert_sucess_total",
+			Help:      "Total number of successful db inserts.",
+		},
 	)
 )
