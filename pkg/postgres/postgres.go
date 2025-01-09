@@ -93,8 +93,6 @@ func NewPostgresConfig(user, password, host string, port int, dbname string, ret
 		retentionDuration: retentionDuration,
 	}
 
-	go postgresConfigInstance.DeleteLoop(time.Second * 60)
-
 	return &postgresConfigInstance
 }
 
@@ -134,21 +132,24 @@ func prepareInsert(db *sql.DB) (*sql.Stmt, error) {
 	return stmt, nil
 }
 
-func (pgconf *PostgresConfig) DeleteLoop(frequency time.Duration) {
-	for {
-		sql, args := buildDeleteStatement(pgconf.retentionDuration)
+func (pgconf *PostgresConfig) deleteRows() error {
+	log.Infof("Deleting rows older than %s", pgconf.retentionDuration)
 
-		// --------------------------- DO NOT ENABLE YET----------------------------
-		fmt.Println(sql)
-		fmt.Println(args...)
-		// _, err := pgconf.db.Query(sql, args...)
-		// if err != nil {
-		// 	log.Errorf("Delete query failed: %v", err)
-		// }
-		// --------------------------- DO NOT ENABLE YET----------------------------
-
-		time.Sleep(frequency)
+	sql, args := buildDeleteStatement(pgconf.retentionDuration)
+	res, err := pgconf.db.Exec(sql, args...)
+	if err != nil {
+		log.Errorf("Delete query failed: %v", err)
+		return err
 	}
+
+	rowsNum, err := res.RowsAffected()
+	if err != nil {
+		log.Errorf("Error getting number of rows affected: %v", err)
+		return err
+	}
+
+	log.Infof("Deleted %d rows", rowsNum)
+	return nil
 }
 
 func (pgconf *PostgresConfig) Insert(event *EventStruct) {
