@@ -16,7 +16,6 @@ import (
 	"github.com/huandu/go-sqlbuilder"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	_ "github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
 
 	mymetrics "github.com/gardener/falco-event-ingestor/pkg/metrics"
@@ -30,12 +29,12 @@ type ClusterIdentity struct {
 }
 
 type PostgresConfig struct {
-	user     string
-	password string
-	host     string
-	port     int
-	dbname   string
-	dbpool   *pgxpool.Pool
+	user              string
+	password          string
+	host              string
+	port              int
+	dbname            string
+	dbpool            *pgxpool.Pool
 	retentionDuration time.Duration
 }
 
@@ -77,16 +76,14 @@ func NewPostgresConfig(user, password, host string, port int, dbname string, ret
 	log.Info("Connection to database succeded")
 
 	return &PostgresConfig{
-		user:     user,
-		password: password,
-		host:     host,
-		port:     port,
-		dbname:   dbname,
-		dbpool:   pool,
+		user:              user,
+		password:          password,
+		host:              host,
+		port:              port,
+		dbname:            dbname,
+		dbpool:            pool,
 		retentionDuration: retentionDuration,
 	}
-
-	return &postgresConfigInstance
 }
 
 func (c *PostgresConfig) SetPassword(password string) {
@@ -184,7 +181,6 @@ func (pgconf *PostgresConfig) Insert(events []EventStruct) error {
 	return nil
 }
 
-
 func (pgconf *PostgresConfig) CheckHealth() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -199,6 +195,24 @@ func (pgconf *PostgresConfig) CheckHealth() error {
 	}
 	defer rows.Close()
 
+	return nil
+}
+
+func (pgconf *PostgresConfig) DeleteRows() error {
+	log.Infof("Deleting rows older than %s", pgconf.retentionDuration)
+
+	sql, args := buildDeleteStatement(pgconf.retentionDuration)
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
+
+	res, err := pgconf.dbpool.Exec(ctx, sql, args...)
+	if err != nil {
+		log.Errorf("Delete query failed: %v", err)
+		return err
+	}
+
+	rowsNum := res.RowsAffected()
+	log.Infof("Deleted %d rows", rowsNum)
 	return nil
 }
 
