@@ -1,0 +1,79 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  labels:
+    app: falco-event-deleter
+  annotations:
+    releaseTime: {{ dateInZone "2006-01-02 15:04:05Z" (now) "UTC"| quote }}
+  name: falco-event-deleter
+spec:
+  schedule: "0 6 * * *" # every day at 6 AM
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    metadata:
+      annotations:
+        releaseTime: {{ dateInZone "2006-01-02 15:04:05Z" (now) "UTC"| quote }}
+    spec:
+      template:
+        metadata:
+          labels:
+            app: falco-event-ingestor
+            gardener.cloud/role: monitoring
+            networking.gardener.cloud/to-dns: allowed
+            resources.gardener.cloud/managed-by: gardener
+            networking.resources.gardener.cloud/to-postgres-tcp-5432: allowed
+          annotations:
+            releaseTime: {{ dateInZone "2006-01-02 15:04:05Z" (now) "UTC"| quote }}
+        spec:
+          automountServiceAccountToken: false
+          containers:
+          - name: ingestor
+            image: {{ include "image" .Values.ingestor.image }}
+            imagePullPolicy: Always
+            args:
+            - --deletion-run
+            - --config-file
+            - /etc/falco-event-ingestor/config.yaml
+            - --keys-file
+            - /etc/falco-event-ingestor/token/token-keys.yaml
+            - --postgres-password-file
+            - /etc/falco-event-ingestor/psql/password
+            volumeMounts:
+            - mountPath: /etc/falco-event-ingestor
+              name: all-volumes
+            livenessProbe:
+              failureThreshold: 1
+              httpGet:
+                path: /healthz
+                port: 8000
+              initialDelaySeconds: 5
+              periodSeconds: 10
+              successThreshold: 1
+              timeoutSeconds: 2
+          dnsPolicy: ClusterFirst
+          restartPolicy: OnFailure
+          securityContext:
+            fsGroup: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+          terminationGracePeriodSeconds: 60
+          volumes:
+          - name: all-volumes
+            projected:
+              sources:
+              - secret:
+                  name: ingestor-secret
+                  items:
+                  - key: token-keys.yaml
+                    path: token/token-keys.yaml
+                  - key: postgresPassword
+                    path: psql/password
+              - configMap:
+                  name: ingestor-configmap
+                  items:
+                  - key: config.yaml
+                    path: config.yaml
+

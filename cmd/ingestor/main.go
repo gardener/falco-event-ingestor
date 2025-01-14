@@ -61,7 +61,7 @@ func initConfig(configFile string, verificationKeys string, postgresPassword str
 
 func main() {
 	// Run only one deletion run
-	deleter := flag.Bool("deletion-run", false, "bool signalling to only start deletion run")
+	deleteOnly := flag.Bool("deletion-run", false, "bool signalling to only start deletion run")
 	// Password for the postgres user
 	postgresPassword := flag.String("postgres-password-file", "", "path to file containing the password for the postgres user")
 	// TlS certificate file
@@ -79,8 +79,10 @@ func main() {
 
 	postgresConfig, validator := initConfig(*configFile, *verificationKeys, *postgresPassword)
 
-	if *deleter {
-		postgresConfig.DeleteRows()
+	if *deleteOnly {
+		if err := postgresConfig.DeleteRows(); err != nil {
+			log.Fatalf("Error during deletion run: %v", err)
+		}
 		return
 	}
 
