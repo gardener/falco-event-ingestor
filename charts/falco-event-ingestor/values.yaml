@@ -12,6 +12,8 @@ ingestor:
   ingressClassName: nginx-ingress-gardener
   replicas: 2
 
+eventDeletion: false
+
 postgres:
   user: gardener
   host: falco-event-db.falco-event-storage.svc.cluster.local

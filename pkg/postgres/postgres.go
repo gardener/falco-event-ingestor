@@ -199,6 +199,10 @@ func (pgconf *PostgresConfig) CheckHealth() error {
 }
 
 func (pgconf *PostgresConfig) DeleteRows() error {
+	if pgconf.retentionDuration <= 0 {
+		return fmt.Errorf("Retention duration is set to %s, skipping deletion", pgconf.retentionDuration)
+	}
+
 	log.Infof("Deleting rows older than %s", pgconf.retentionDuration)
 
 	sql, args := buildDeleteStatement(pgconf.retentionDuration)
