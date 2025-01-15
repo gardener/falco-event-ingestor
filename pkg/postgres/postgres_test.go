@@ -115,11 +115,11 @@ func TestHealthQueryRowsClosed(t *testing.T) {
 func TestParseClusterId(t *testing.T) {
 	validExample := `"shoot--project--cluster-123e4567-e89b-12d3-a456-426614174000-landscape"`
 	invalidExamples := []string{
-		`"shoot-project--cluster-123e4567-e89b-12d3-a456-426614174000-landscape"`,        // missing double dash after "shoot"
-		`"shoot--project-cluster-123e4567-e89b-12d3-a456-426614174000-landscape"`,        // missing double dash after "project"
-		`"shoot--project--cluster-123e4567-e89b-12d3-a456-42661417400-landscape"`,        // invalid UUID (one character short)
-		`"shoot--project--cluster-123e4567-e89b-12d3-a456-426614174000"`,                 // missing landscape part
-		`"sht----cluster-123esss4567-e89b-12d3-a456-426614174000-landscape-extra"`,       // broken UUID
+		`"shoot-project--cluster-123e4567-e89b-12d3-a456-426614174000-landscape"`,  // missing double dash after "shoot"
+		`"shoot--project-cluster-123e4567-e89b-12d3-a456-426614174000-landscape"`,  // missing double dash after "project"
+		`"shoot--project--cluster-123e4567-e89b-12d3-a456-42661417400-landscape"`,  // invalid UUID (one character short)
+		`"shoot--project--cluster-123e4567-e89b-12d3-a456-426614174000"`,           // missing landscape part
+		`"sht----cluster-123esss4567-e89b-12d3-a456-426614174000-landscape-extra"`, // broken UUID
 	}
 
 	good := EventStruct{
@@ -132,7 +132,6 @@ func TestParseClusterId(t *testing.T) {
 	if err != nil {
 		t.Errorf("Valid cluster ID parsing failed: %s", err)
 	}
-
 
 	for _, example := range invalidExamples {
 		bad := EventStruct{
