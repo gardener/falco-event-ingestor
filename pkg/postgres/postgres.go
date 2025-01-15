@@ -13,9 +13,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/huandu/go-sqlbuilder"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-
 	log "github.com/sirupsen/logrus"
 
 	mymetrics "github.com/gardener/falco-event-ingestor/pkg/metrics"
@@ -29,12 +29,13 @@ type ClusterIdentity struct {
 }
 
 type PostgresConfig struct {
-	user     string
-	password string
-	host     string
-	port     int
-	dbname   string
-	dbpool   *pgxpool.Pool
+	user              string
+	password          string
+	host              string
+	port              int
+	dbname            string
+	dbpool            *pgxpool.Pool
+	retentionDuration time.Duration
 }
 
 type EventStruct struct {
@@ -49,9 +50,16 @@ type EventStruct struct {
 	Hostname     string                     `json:"hostname"`
 }
 
-func NewPostgresConfig(user, password, host string, port int, dbname string) *PostgresConfig {
+func NewPostgresConfig(user, password, host string, port int, dbname string, retentionDays int) *PostgresConfig {
 	connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s", host, port, user, password, dbname)
+
+	retentionDuration, err := time.ParseDuration(fmt.Sprintf("%dh", retentionDays*24))
+	if err != nil {
+		log.Fatalf("Could not parse event retention days %v", err)
+	}
+
 	config, err := pgxpool.ParseConfig(connStr)
+
 	if err != nil {
 		log.Fatalf("Unable to parse database connection string: %v", err)
 	}
@@ -61,19 +69,20 @@ func NewPostgresConfig(user, password, host string, port int, dbname string) *Po
 		log.Fatalf("Unable to create connection pool: %v", err)
 	}
 
-	log.Info("Connection to database succeded")
-
 	if pingErr := pool.Ping(context.Background()); pingErr != nil {
 		log.Fatalf("Unable to ping database: %v", pingErr)
 	}
 
+	log.Info("Connection to database succeded")
+
 	return &PostgresConfig{
-		user:     user,
-		password: password,
-		host:     host,
-		port:     port,
-		dbname:   dbname,
-		dbpool:   pool,
+		user:              user,
+		password:          password,
+		host:              host,
+		port:              port,
+		dbname:            dbname,
+		dbpool:            pool,
+		retentionDuration: retentionDuration,
 	}
 }
 
@@ -187,4 +196,37 @@ func (pgconf *PostgresConfig) CheckHealth() error {
 	defer rows.Close()
 
 	return nil
+}
+
+func (pgconf *PostgresConfig) DeleteRows() error {
+	if pgconf.retentionDuration <= 0 {
+		return fmt.Errorf("Retention duration is set to %s, skipping deletion", pgconf.retentionDuration)
+	}
+
+	log.Infof("Deleting rows older than %s", pgconf.retentionDuration)
+
+	sql, args := buildDeleteStatement(pgconf.retentionDuration)
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
+
+	res, err := pgconf.dbpool.Exec(ctx, sql, args...)
+	if err != nil {
+		log.Errorf("Delete query failed: %v", err)
+		return err
+	}
+
+	rowsNum := res.RowsAffected()
+	log.Infof("Deleted %d rows", rowsNum)
+	return nil
+}
+
+func buildDeleteStatement(maxAge time.Duration) (string, []interface{}) {
+	maxTime := time.Now().UTC().Add(-maxAge)
+
+	sb := sqlbuilder.PostgreSQL.NewDeleteBuilder()
+	sb.DeleteFrom("falco_events")
+	sb.Where(sb.LessThan("time", maxTime))
+
+	sql, args := sb.Build()
+	return sql, args
 }
