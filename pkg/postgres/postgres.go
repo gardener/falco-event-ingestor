@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/hako/durafmt"
 	"github.com/huandu/go-sqlbuilder"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -203,7 +204,8 @@ func (pgconf *PostgresConfig) DeleteRows() error {
 		return fmt.Errorf("Retention duration is set to %s, skipping deletion", pgconf.retentionDuration)
 	}
 
-	log.Infof("Deleting rows older than %s", pgconf.retentionDuration)
+	readableRetentionDuration := durafmt.Parse(pgconf.retentionDuration)
+	log.Infof("Deleting rows older than %s", readableRetentionDuration.String())
 
 	sql, args := buildDeleteStatement(pgconf.retentionDuration)
 	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
