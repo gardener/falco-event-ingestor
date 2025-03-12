@@ -6,6 +6,7 @@ updates:
     interval: "weekly"
   labels:
   - kind/enhancement
+  - reviewed/ok-to-test
 - package-ecosystem: "docker"
   directory: "/"
   schedule:
