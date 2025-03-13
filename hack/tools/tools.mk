@@ -36,8 +36,8 @@ clean-tools-bin:
 	rm -rf $(TOOLS_BIN_DIR)/*
 
 # default tool versions
-GOLANGCI_LINT_VERSION ?= v1.61.0
-GOSEC_VERSION ?= v2.21.4
+GOLANGCI_LINT_VERSION ?= v1.64.7
+GOSEC_VERSION ?= v2.22.2
 
 GOIMPORTS_VERSION ?= $(call version_gomod,golang.org/x/tools)
 
