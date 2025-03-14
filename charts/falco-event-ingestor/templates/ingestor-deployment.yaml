@@ -32,6 +32,8 @@ spec:
       - name: ingestor
         image: {{ include "image" .Values.ingestor.image }}
         imagePullPolicy: Always
+        securityContext:
+          allowPrivilegeEscalation: false
         args:
         - --config-file
         - /etc/falco-event-ingestor/config.yaml
@@ -72,7 +74,6 @@ spec:
         runAsGroup: 65532
         runAsNonRoot: true
         runAsUser: 65532
-        allowPrivilegeEscalation: false
       terminationGracePeriodSeconds: 30
       volumes:
       - name: all-volumes
