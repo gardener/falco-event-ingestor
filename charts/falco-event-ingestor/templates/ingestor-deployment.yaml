@@ -23,7 +23,6 @@ spec:
         gardener.cloud/role: monitoring
         networking.gardener.cloud/to-dns: allowed
         resources.gardener.cloud/managed-by: gardener
-        networking.resources.gardener.cloud/to-postgres-tcp-5432: allowed
       annotations:
         releaseTime: {{ dateInZone "2006-01-02 15:04:05Z" (now) "UTC"| quote }}
     spec:
