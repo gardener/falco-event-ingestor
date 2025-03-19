@@ -26,8 +26,6 @@ server:
   port: 3200
 
 resources:
-  limits:
-    memory: 400Mi
   requests:
     cpu: 10m
     memory: 32Mi
