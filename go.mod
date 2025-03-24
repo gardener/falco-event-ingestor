@@ -7,7 +7,7 @@ require (
 	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b
 	github.com/huandu/go-sqlbuilder v1.34.0
 	github.com/jackc/pgx/v5 v5.7.3
-	github.com/pashagolub/pgxmock/v4 v4.5.0
+	github.com/pashagolub/pgxmock/v4 v4.6.0
 	github.com/prometheus/client_golang v1.21.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.20.0
