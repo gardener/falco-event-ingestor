@@ -138,7 +138,7 @@ func (pgconf *PostgresConfig) Insert(events []EventStruct) error {
 			clusterIdentity.landscape,
 			clusterIdentity.project,
 			clusterIdentity.cluster,
-			clusterIdentity.uuid,
+			event.Uuid,
 			event.Hostname,
 			event.Time,
 			event.Rule,
