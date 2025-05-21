@@ -33,6 +33,8 @@ spec:
           - name: ingestor
             image: {{ include "image" .Values.ingestor.image }}
             imagePullPolicy: Always
+            securityContext:
+              allowPrivilegeEscalation: false
             args:
             - --deletion-run
             - --config-file
@@ -60,7 +62,6 @@ spec:
             runAsGroup: 65532
             runAsNonRoot: true
             runAsUser: 65532
-            allowPrivilegeEscalation: false
           terminationGracePeriodSeconds: 60
           volumes:
           - name: all-volumes
