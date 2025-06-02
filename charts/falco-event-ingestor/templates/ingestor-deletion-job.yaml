@@ -17,10 +17,11 @@ spec:
       annotations:
         releaseTime: {{ dateInZone "2006-01-02 15:04:05Z" (now) "UTC"| quote }}
     spec:
+      activeDeadlineSeconds: 600
       template:
         metadata:
           labels:
-            app: falco-event-ingestor
+            app: falco-event-deleter
             gardener.cloud/role: monitoring
             networking.gardener.cloud/to-dns: allowed
             resources.gardener.cloud/managed-by: gardener
@@ -30,7 +31,7 @@ spec:
         spec:
           automountServiceAccountToken: false
           containers:
-          - name: ingestor
+          - name: deleter
             image: {{ include "image" .Values.ingestor.image }}
             imagePullPolicy: Always
             securityContext:
@@ -46,15 +47,6 @@ spec:
             volumeMounts:
             - mountPath: /etc/falco-event-ingestor
               name: all-volumes
-            livenessProbe:
-              failureThreshold: 1
-              httpGet:
-                path: /healthz
-                port: 8000
-              initialDelaySeconds: 5
-              periodSeconds: 10
-              successThreshold: 1
-              timeoutSeconds: 2
           dnsPolicy: ClusterFirst
           restartPolicy: OnFailure
           securityContext:
