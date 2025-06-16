@@ -5,7 +5,7 @@ go 1.24.4
 require (
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b
-	github.com/huandu/go-sqlbuilder v1.35.0
+	github.com/huandu/go-sqlbuilder v1.35.1
 	github.com/jackc/pgx/v5 v5.7.5
 	github.com/pashagolub/pgxmock/v4 v4.7.0
 	github.com/prometheus/client_golang v1.22.0
