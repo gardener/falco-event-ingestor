@@ -22,6 +22,8 @@ import (
 	mymetrics "github.com/gardener/falco-event-ingestor/pkg/metrics"
 )
 
+const MAX_JSONB_SIZE = 4 << 10 // 4 KiB
+
 type ClusterIdentity struct {
 	project   string
 	cluster   string
@@ -122,19 +124,19 @@ func (pgconf *PostgresConfig) Insert(events []EventStruct) error {
 	for i, event := range events {
 		clusterIdentity, err := parseClusterId(event)
 		if err != nil {
-			errStr := fmt.Sprintf("Error parsing cluster id: %s", err)
-			log.Error(errStr)
-			continue
+			return fmt.Errorf("failed to parse cluster id: %w", err)
 		}
 
 		outputJson, err := json.Marshal(event.OutputFields)
 		if err != nil {
-			errStr := fmt.Sprintf("Error marshalling output fields: %s", err)
-			log.Error(errStr)
-			continue
+			return fmt.Errorf("failed to marshal output fields: %w", err)
 		}
 
-		rows[i] = []interface{}{
+		if len(outputJson) > MAX_JSONB_SIZE {
+			return fmt.Errorf("outputFields field is too large")
+		}
+
+		rows[i] = []any{
 			clusterIdentity.landscape,
 			clusterIdentity.project,
 			clusterIdentity.cluster,
@@ -222,7 +224,7 @@ func (pgconf *PostgresConfig) DeleteRows() error {
 	return nil
 }
 
-func buildDeleteStatement(maxAge time.Duration) (string, []interface{}) {
+func buildDeleteStatement(maxAge time.Duration) (string, []any) {
 	maxTime := time.Now().UTC().Add(-maxAge)
 
 	sb := sqlbuilder.PostgreSQL.NewDeleteBuilder()
