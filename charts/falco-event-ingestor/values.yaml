@@ -12,7 +12,7 @@ ingestor:
   ingressClassName: nginx-ingress-gardener
   replicas: 2
 ### The gardenDNSProvider section is needed if the garden-runtime cluster uses the garden cert-controller-manager
-### Values are from the `Garden` resource at `
+### Values are from the `Garden` resource at `.spec.dns.providers[0]`
 # gardenDNSProvider:
 #   secretRef:
 #     namespace: garden
