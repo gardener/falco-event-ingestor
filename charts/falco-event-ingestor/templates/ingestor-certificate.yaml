@@ -1,6 +1,12 @@
 apiVersion: cert.gardener.cloud/v1alpha1
 kind: Certificate
 metadata:
+{{- if .Values.ingestor.gardenDNSProvider }}
+  annotations:
+    cert.gardener.cloud/dnsrecord-provider-type: {{ .Values.ingestor.gardenDNSProvider.type }}
+    cert.gardener.cloud/dnsrecord-secret-ref: {{ .Values.ingestor.gardenDNSProvider.secretRef.namespace }}/{{ .Values.ingestor.gardenDNSProvider.secretRef.name }}
+    cert.gardener.cloud/dnsrecord-class: garden
+{{- end }}
   name: ingestor-certificate
 spec:
   commonName: {{ .Values.ingestor.commonName | quote }}
