@@ -11,6 +11,13 @@ ingestor:
   useIngress: true
   ingressClassName: nginx-ingress-gardener
   replicas: 2
+### The gardenDNSProvider section is needed if the garden-runtime cluster uses the garden cert-controller-manager
+### Values are from the `Garden` resource at `.spec.dns.providers[0]`
+# gardenDNSProvider:
+#   secretRef:
+#     namespace: garden
+#     name: garden-gardener-dns
+#   type: aws-route53
 
 eventDeletion: false
 
