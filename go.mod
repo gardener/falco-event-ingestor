@@ -1,6 +1,6 @@
 module github.com/gardener/falco-event-ingestor
 
-go 1.24.4
+go 1.24.5
 
 require (
 	github.com/golang-jwt/jwt/v5 v5.2.2
