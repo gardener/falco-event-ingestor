@@ -8,10 +8,13 @@ on:
           - bump-minor
           - bump-patch
 
-
 jobs:
   build:
     uses: ./.github/workflows/build.yaml
+    permissions:
+      contents: write
+      id-token: write
+      packages: write
     with:
       mode: release
 
@@ -20,6 +23,10 @@ jobs:
     needs:
       - build
     secrets: inherit
+    permissions:
+      contents: write
+      id-token: write
+      packages: write
     with:
       release-commit-target: branch
       next-version: ${{ inputs.next-version }}
