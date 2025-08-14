@@ -6,6 +6,11 @@ metadata:
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/use-port-in-redirects: "true"
     cert.gardener.cloud/purpose: managed
+{{- if .Values.ingestor.gardenDNSProvider }}
+    cert.gardener.cloud/dnsrecord-provider-type: {{ .Values.ingestor.gardenDNSProvider.type }}
+    cert.gardener.cloud/dnsrecord-secret-ref: {{ .Values.ingestor.gardenDNSProvider.secretRef.namespace }}/{{ .Values.ingestor.gardenDNSProvider.secretRef.name }}
+    cert.gardener.cloud/dnsrecord-class: garden
+{{- end }}
   labels:
     app: falco-event-ingestor
   name: falco-event-ingestor-ingress
