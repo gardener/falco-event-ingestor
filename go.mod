@@ -5,7 +5,7 @@ go 1.25.1
 require (
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b
-	github.com/huandu/go-sqlbuilder v1.36.1
+	github.com/huandu/go-sqlbuilder v1.37.0
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/pashagolub/pgxmock/v4 v4.8.0
 	github.com/prometheus/client_golang v1.23.2
@@ -21,6 +21,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
+	github.com/huandu/go-clone v1.7.3 // indirect
 	github.com/huandu/xstrings v1.5.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
