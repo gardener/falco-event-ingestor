@@ -4,7 +4,6 @@ ingestor:
     repository: europe-docker.pkg.dev/gardener-project/releases/gardener/falco-event-ingestor
     tag: 0.0.2
   publicKey: ""
-  commonName: *theIngress
   dnsNames: ""
   clusterDailyEventLimit: 100000000000
   ingestorTLS: false
