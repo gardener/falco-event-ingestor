@@ -1,0 +1,9 @@
+# See the OWNERS docs at https://go.k8s.io/owners
+
+aliases:
+  falco-event-ingestor-reviewers:
+  - lsroe
+  - marwinski
+  falco-event-ingestor-approvers:
+  - lsroe
+  - marwinski
