@@ -8,4 +8,4 @@ spec:
     kind: Deployment
     name: falco-event-ingestor
   updatePolicy:
-    updateMode: Auto
+    updateMode: Recreate
