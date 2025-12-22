@@ -51,6 +51,27 @@ jobs:
       oci-platforms: linux/amd64,linux/arm64
       ocm-labels: ${{ toJSON(matrix.args.ocm-labels) }}
 
+  helmchart:
+    name: Build Helmchart
+    uses: gardener/cc-utils/.github/workflows/helmchart-ocm.yaml@master
+    needs:
+      - prepare
+      - oci-images
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    with:
+      name: falco-event-ingestor
+      dir: charts/falco-event-ingestor
+      oci-registry: ${{ needs.prepare.outputs.oci-registry }}
+      oci-repository: charts/gardener
+      ocm-mappings: |
+        - ref: ocm-resource:falco-event-ingestor.repository
+          attribute: ingestor.image.repository
+        - ref: ocm-resource:falco-event-ingestor.tag
+          attribute: ingestor.image.tag
+
   verify:
     runs-on: ubuntu-latest
     permissions:
