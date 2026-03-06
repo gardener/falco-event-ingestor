@@ -7,3 +7,5 @@ This deployment provides an Ingestor for Falco events emitted by the [Gardner Ex
 ## Usage
 
 Users may configure configure the [`values.yaml`](https://github.com/gardener/falco-event-ingestor/blob/main/chart/values.yaml) according to their needs. Users are especially required to configure the `postgres` parameters according to their cluster configuration and naming conventions.
+
+<p align="center"><img alt="Bundesministerium für Wirtschaft und Energie (BMWE)-EU funding logo" src="https://apeirora.eu/assets/img/BMWK-EU.png" width="400"/></p>
