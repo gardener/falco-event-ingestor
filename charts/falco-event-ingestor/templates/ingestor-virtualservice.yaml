@@ -1,0 +1,24 @@
+{{- if .Values.ingestor.useIngress }}
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  labels:
+    app: falco-event-ingestor
+  name: falco-event-ingestor-ingress
+spec:
+  exportTo:
+  - '*'
+  gateways:
+  - falco-event-ingestor-ingress
+  hosts:
+  - {{ .Values.ingestor.ingressDomain }}
+  http:
+  - match:
+    - uri:
+        prefix: /ingestor/api/v1/push
+    route:
+    - destination:
+        host: falco-event-ingestor.falco-event-storage.svc.cluster.local
+        port:
+          number: 3200
+{{- end }}

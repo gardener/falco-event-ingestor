@@ -8,7 +8,9 @@ ingestor:
   clusterDailyEventLimit: 100000000000
   ingestorTLS: false
   useIngress: true
-  ingressClassName: nginx-ingress-gardener
+  istioLabels:
+    istio: ingressgateway
+  istioNamespace: virtual-garden-istio-ingress
   replicas: 2
 ### The gardenDNSProvider section is needed if the garden-runtime cluster uses the garden cert-controller-manager
 ### Values are from the `Garden` resource at `.spec.dns.providers[0]`

@@ -1,0 +1,26 @@
+{{- if .Values.ingestor.useIngress }}
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  labels:
+    app: falco-event-ingestor
+  name: falco-event-ingestor-ingress
+spec:
+  exportTo:
+  - '*'
+  host: falco-event-ingestor.falco-event-storage.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      localityLbSetting:
+        failoverPriority:
+        - topology.kubernetes.io/zone
+        enabled: true
+    connectionPool:
+      tcp:
+        maxConnectionDuration: 86400s
+        tcpKeepalive:
+          interval: 75s
+          time: 7200s
+    outlierDetection: {}
+    tls: {}
+{{- end }}

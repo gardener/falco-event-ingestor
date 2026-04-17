@@ -1,35 +1,30 @@
 {{- if .Values.ingestor.useIngress }}
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+apiVersion: networking.istio.io/v1
+kind: Gateway
 metadata:
   annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/use-port-in-redirects: "true"
     cert.gardener.cloud/purpose: managed
 {{- if .Values.ingestor.gardenDNSProvider }}
     cert.gardener.cloud/class: garden
     cert.gardener.cloud/dnsrecord-provider-type: {{ .Values.ingestor.gardenDNSProvider.type }}
     cert.gardener.cloud/dnsrecord-secret-ref: {{ .Values.ingestor.gardenDNSProvider.secretRef.namespace }}/{{ .Values.ingestor.gardenDNSProvider.secretRef.name }}
     cert.gardener.cloud/dnsrecord-class: garden
+    cert.gardener.cloud/secret-namespace: {{ .Values.ingestor.istioNamespace }}
 {{- end }}
   labels:
     app: falco-event-ingestor
   name: falco-event-ingestor-ingress
 spec:
-  ingressClassName: {{ .Values.ingestor.ingressClassName}}
-  rules:
-  - host: {{ .Values.ingestor.ingressDomain }}
-    http:
-      paths:
-      - backend:
-          service:
-            name: falco-event-ingestor
-            port:
-              number: 3200
-        path: /ingestor/api/v1/push
-        pathType: Prefix
-  tls:
+  selector:
+{{ toYaml .Values.ingestor.istioLabels | indent 4 }}
+  servers:
   - hosts:
     - {{ .Values.ingestor.ingressDomain }}
-    secretName: tls-ingestor
+    port:
+      name: https
+      number: 443
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: tls-ingestor
 {{- end }}
