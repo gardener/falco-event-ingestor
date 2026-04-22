@@ -2,6 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   annotations:
+    networking.istio.io/exportTo: "*"
     networking.resources.gardener.cloud/from-world-to-ports: '[{"protocol":"TCP","port":3200}]'
     networking.resources.gardener.cloud/from-all-garden-scrape-targets-allowed-ports: '[{"port":8080,"protocol":"TCP"}]'
     networking.resources.gardener.cloud/namespace-selectors: '[{"matchLabels":{"kubernetes.io/metadata.name":"garden"}}]'

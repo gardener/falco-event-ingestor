@@ -18,7 +18,7 @@ spec:
         prefix: /ingestor/api/v1/push
     route:
     - destination:
-        host: falco-event-ingestor.falco-event-storage.svc.cluster.local
+        host: falco-event-ingestor.{{ .Release.Namespace }}.svc.cluster.local
         port:
           number: 3200
 {{- end }}

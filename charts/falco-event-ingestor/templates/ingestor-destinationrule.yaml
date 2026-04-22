@@ -8,7 +8,7 @@ metadata:
 spec:
   exportTo:
   - '*'
-  host: falco-event-ingestor.falco-event-storage.svc.cluster.local
+  host: falco-event-ingestor.{{ .Release.Namespace }}.svc.cluster.local
   trafficPolicy:
     loadBalancer:
       localityLbSetting:
