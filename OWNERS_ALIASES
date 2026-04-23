@@ -2,8 +2,6 @@
 
 aliases:
   falco-event-ingestor-reviewers:
-  - lsroe
   - marwinski
   falco-event-ingestor-approvers:
-  - lsroe
   - marwinski
