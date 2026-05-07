@@ -2,12 +2,10 @@
 
 aliases:
   falco-event-ingestor-reviewers:
-  - lsroe
   - marwinski
   - AleksandarSavchev
   - georgibaltiev
   falco-event-ingestor-approvers:
-  - lsroe
   - marwinski
   - AleksandarSavchev
   - georgibaltiev
