@@ -8,4 +8,4 @@ spec:
     kind: Deployment
     name: falco-event-ingestor
   updatePolicy:
-    updateMode: Recreate
+    updateMode: InPlaceOrRecreate
