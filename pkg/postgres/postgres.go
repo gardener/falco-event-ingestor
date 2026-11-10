@@ -22,7 +22,10 @@ import (
 	mymetrics "github.com/gardener/falco-event-ingestor/pkg/metrics"
 )
 
-const MAX_JSONB_SIZE = 50 << 10 // 50 KiB
+const (
+	MAX_JSONB_SIZE = 50 << 10 // 50 KiB
+	MaxEventSize   = 50 << 10 // 50 KiB HTTP request body limit
+)
 
 type ClusterIdentity struct {
 	project   string
