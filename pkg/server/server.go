@@ -210,21 +210,9 @@ func (s *Server) readEventsFromChannel() {
 }
 
 func (s *Server) insertEvents() {
-	events := make([]postgres.EventStruct, 1)
-	events[0] = <-s.eventChannel
-
-outer:
-	for {
-		select {
-		case event := <-s.eventChannel:
-			events = append(events, event)
-		default:
-			break outer
-		}
-	}
-
-	if err := s.postgres.Insert(events); err != nil {
-		log.Errorf("Error inserting %d event(s) into database: %v", len(events), err)
+	event := <-s.eventChannel
+	if err := s.postgres.Insert([]postgres.EventStruct{event}); err != nil {
+		log.Errorf("Error inserting event into database: %v", err)
 	}
 }
 
@@ -324,6 +312,7 @@ func verifyEventTokenMatch(event *postgres.EventStruct, token *auth.TokenValues)
 
 func requestToEvent(req *http.Request) (*postgres.EventStruct, error) {
 	eventStruct := postgres.EventStruct{}
+	req.Body = http.MaxBytesReader(nil, req.Body, postgres.MaxEventSize)
 	decoder := json.NewDecoder(req.Body)
 	decoder.DisallowUnknownFields()
 
